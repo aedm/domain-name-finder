@@ -1,0 +1,4 @@
+/.idea/
+/zone-file-processor/target/
+/zone-file-processor/input.txt
+/zone-file-processor/output.txt

@@ -79,7 +79,7 @@ dependencies = [
 ]
 
 [[package]]
-name = "zone-file-processor"
+name = "server"
 version = "0.1.0"
 dependencies = [
  "anyhow",

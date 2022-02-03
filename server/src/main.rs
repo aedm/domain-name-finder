@@ -1,46 +1,84 @@
-use anyhow::Result;
-use flate2::read::GzDecoder;
+mod database_reader;
+
+use crate::database_reader::Database;
+use actix_web::web::Data;
+use actix_web::{get, post, web, App, HttpResponse, HttpServer, Responder};
+use itertools::Itertools;
+use std::borrow::Borrow;
 use std::collections::HashSet;
-use std::fs::File;
-use std::io;
-use std::io::{BufRead, BufReader};
-use std::time::Instant;
+use std::sync::{Arc, RwLock};
+use std::thread;
+use std::time::Duration;
 
-fn read_lines(input_file_name: &str) -> Result<HashSet<String>> {
-    let gz_file = File::open(input_file_name)?;
-    let gz_decoder = GzDecoder::new(gz_file);
-    let reader = BufReader::new(gz_decoder);
-
-    let mut set = HashSet::new();
-    let mut counter = 0;
-    for line in reader.lines() {
-        // set.insert(line.unwrap());
-        counter += 1;
-        if counter % 1_000_000 == 0 {
-            println!("{} million entries loaded.", counter / 1_000_000);
-        }
-    }
-    println!("Total entries: {}", counter);
-    Ok(set)
+// This struct represents state
+struct AppState {
+    app_name: String,
+    database: RwLock<Arc<Database>>,
 }
 
-fn main() -> Result<()> {
-    let now = Instant::now();
-    let mut set = read_lines("com.zone.46792.filtered.txt.gz")?;
-    let elapsed = now.elapsed().as_micros();
-    println!("Input read in {} sec.", elapsed as f64 / 1000000.0);
+#[get("/")]
+async fn hello(data: web::Data<AppState>) -> impl Responder {
+    let database = data.database.read().unwrap().clone();
+    let words = database.iter().join(",");
+    HttpResponse::Ok().body(format!(
+        "words: {}, thread: {:?}\n",
+        words,
+        thread::current().id()
+    ))
+}
 
-    println!("Press enter");
-    let mut buffer = String::new();
-    let stdin = io::stdin(); // We get `Stdin` here.
-    stdin.read_line(&mut buffer)?;
+#[post("/echo")]
+async fn echo(req_body: String) -> impl Responder {
+    HttpResponse::Ok().body(req_body)
+}
 
-    set.clear();
+async fn manual_hello() -> impl Responder {
+    HttpResponse::Ok().body("Hey there!")
+}
 
-    println!("Press enter 2");
-    let mut buffer = String::new();
-    let stdin = io::stdin(); // We get `Stdin` here.
-    stdin.read_line(&mut buffer)?;
+async fn update_database(app_state: web::Data<AppState>) {
+    let mut counter = 0;
+    loop {
+        actix_web::rt::time::delay_for(Duration::from_millis(1000)).await;
 
-    Ok(())
+        counter += 1;
+        println!("counter: {}", counter);
+        let heavy: i64 = (0i64..100_000_000).map(|x| (x + counter) % 2).sum();
+        println!("heavy: {}", heavy);
+
+        let mut new_db = Database::new();
+        new_db.insert(format!("counter {}", counter));
+        new_db.insert("lézer".into());
+        let mut db_ref = app_state.database.write().unwrap();
+        *db_ref = Arc::new(new_db);
+    }
+}
+
+#[actix_web::main]
+async fn main() -> std::io::Result<()> {
+    println!("Start");
+    let mut database = Database::new();
+    database.insert("foo".into());
+    database.insert("bar".into());
+
+    let app_state = web::Data::new(AppState {
+        app_name: String::from("Actix-web"),
+        database: RwLock::new(Arc::new(database)),
+    });
+
+    let app_state_clone = app_state.clone();
+    actix_web::rt::spawn(async move {
+        update_database(app_state_clone).await;
+    });
+
+    HttpServer::new(move || {
+        App::new()
+            .app_data(app_state.clone())
+            .service(hello)
+            .service(echo)
+            .route("/hey", web::get().to(manual_hello))
+    })
+    .bind("127.0.0.1:8080")?
+    .run()
+    .await
 }

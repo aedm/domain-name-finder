@@ -9,6 +9,7 @@
 		"format": "prettier . --write"
 	},
 	"dependencies": {
+		"axios": "^0.25.0",
 		"lodash": "^4.17.21",
 		"vue": "^3.2.16"
 	},

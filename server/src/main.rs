@@ -1,7 +1,7 @@
 mod database_reader;
 mod search;
 
-use crate::database_reader::Database;
+use crate::database_reader::{read_database, Database};
 use crate::search::{search, SearchInput, SearchResult};
 use actix_web::web::Data;
 use actix_web::{get, post, web, App, HttpResponse, HttpServer, Responder, Result};
@@ -52,9 +52,10 @@ async fn update_database(app_state: web::Data<AppState>) {
 }
 
 #[actix_web::main]
-async fn main() -> std::io::Result<()> {
+async fn main() -> anyhow::Result<()> {
     println!("Start");
-    let mut database = Database::new();
+    let mut database = read_database()?;
+
     database.insert("foo".into());
     database.insert("bar".into());
 
@@ -71,5 +72,7 @@ async fn main() -> std::io::Result<()> {
     HttpServer::new(move || App::new().app_data(app_state.clone()).service(hello))
         .bind("127.0.0.1:8080")?
         .run()
-        .await
+        .await?;
+
+    Ok(())
 }

@@ -8,7 +8,7 @@ use std::time::Instant;
 
 pub type Database = HashSet<String>;
 
-pub fn read_lines(input_file_name: &str) -> Result<Database> {
+fn read_lines(input_file_name: &str) -> Result<Database> {
     let gz_file = File::open(input_file_name)?;
     let gz_decoder = GzDecoder::new(gz_file);
     let reader = BufReader::new(gz_decoder);
@@ -24,6 +24,10 @@ pub fn read_lines(input_file_name: &str) -> Result<Database> {
     }
     println!("Total entries: {}", counter);
     Ok(set)
+}
+
+pub fn read_database() -> Result<Database> {
+    read_lines("com.zone.filtered.txt.gz")
 }
 
 // fn main() -> Result<()> {

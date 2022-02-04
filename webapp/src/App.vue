@@ -5,7 +5,7 @@ import axios, { AxiosResponse } from 'axios';
 const userInput = ref('enter some words here ');
 const debouncedInput = ref(userInput.value);
 let searchInput = '';
-let axiosPromise;
+let axiosPromise = null as Promise<AxiosResponse> | null;
 const result = ref(null as AxiosResponse | null);
 
 function sortList(list?: Array<String>): Array<String> {
@@ -26,7 +26,7 @@ async function doSearch() {
   const payload = { words };
   axiosPromise = axios.post('/api/search', payload);
   result.value = await axiosPromise;
-  axiosPromise = undefined;
+  axiosPromise = null;
   if (searchInput != debouncedInput.value) setTimeout(doSearch, 0);
 }
 

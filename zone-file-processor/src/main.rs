@@ -26,7 +26,7 @@ fn process_lines(input_file_name: &str) -> Result<String> {
 
     let mut last_domain = String::new();
     let mut counter = 0;
-    for line in reader.lines().take(1000_000) {
+    for line in reader.lines() {
         let line = line.unwrap();
         let domain = line.split('.').nth(0).expect("Error in input");
         if last_domain != domain {
@@ -35,6 +35,7 @@ fn process_lines(input_file_name: &str) -> Result<String> {
             counter += 1;
             if counter % 1_000_000 == 0 {
                 println!("Processed {} million entries.", counter / 1_000_000);
+                break;
             }
         }
     }

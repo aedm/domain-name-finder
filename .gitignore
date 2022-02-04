@@ -4,4 +4,5 @@
 /zone-file-processor/output.txt
 target
 *.txt.gz
+/db
 

@@ -1,3 +1,4 @@
+use crate::database_reader::DbEntry;
 use crate::Database;
 use serde::{Deserialize, Serialize};
 
@@ -20,7 +21,8 @@ pub fn search(input: &SearchInput, db: &Database) -> SearchResult {
         for w2 in words {
             if w1 != w2 {
                 let term = format!("{}{}", w1, w2);
-                if db.contains(&term) {
+                let db_entry = DbEntry::from(term.clone());
+                if db.contains(&db_entry) {
                     reserved.push(term);
                 } else {
                     free.push(term);

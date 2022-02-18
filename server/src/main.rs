@@ -56,23 +56,23 @@ async fn main() -> anyhow::Result<()> {
     println!("Start");
     let mut database = read_database()?;
 
-    database.insert("foo".into());
-    database.insert("bar".into());
-
-    let app_state = web::Data::new(AppState {
-        app_name: String::from("Actix-web"),
-        database: RwLock::new(Arc::new(database)),
-    });
-
-    let app_state_clone = app_state.clone();
-    actix_web::rt::spawn(async move {
-        update_database(app_state_clone).await;
-    });
-
-    HttpServer::new(move || App::new().app_data(app_state.clone()).service(hello))
-        .bind("0.0.0.0:8080")?
-        .run()
-        .await?;
+    // database.insert("foo".into());
+    // database.insert("bar".into());
+    //
+    // let app_state = web::Data::new(AppState {
+    //     app_name: String::from("Actix-web"),
+    //     database: RwLock::new(Arc::new(database)),
+    // });
+    //
+    // let app_state_clone = app_state.clone();
+    // actix_web::rt::spawn(async move {
+    //     update_database(app_state_clone).await;
+    // });
+    //
+    // HttpServer::new(move || App::new().app_data(app_state.clone()).service(hello))
+    //     .bind("0.0.0.0:8080")?
+    //     .run()
+    //     .await?;
 
     Ok(())
 }

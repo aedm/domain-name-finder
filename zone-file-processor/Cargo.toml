@@ -8,4 +8,6 @@ edition = "2021"
 [dependencies]
 anyhow = "1.0.44"
 itertools = "0.10.1"
-flate2 = "1.0.22"
+#flate2 = "1.0.22"
+flate2 = { version = "1.0.22", features = ["zlib-ng-compat"], default-features = false }
+tokio = { version = "1.12.0", features = ["full"] }

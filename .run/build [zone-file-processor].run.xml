@@ -1,5 +1,5 @@
 <component name="ProjectRunConfigurationManager">
-  <configuration default="false" name="build [zone-file-processor]" type="CargoCommandRunConfiguration" factoryName="Cargo Command">
+  <configuration default="false" name="Build zone-file-processor (release)" type="CargoCommandRunConfiguration" factoryName="Cargo Command">
     <option name="command" value="build --release" />
     <option name="workingDirectory" value="file://$PROJECT_DIR$/zone-file-processor" />
     <option name="channel" value="DEFAULT" />

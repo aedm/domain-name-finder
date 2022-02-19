@@ -1,8 +1,11 @@
+mod database;
 mod database_reader;
 mod search;
 
-use crate::database_reader::{read_database, Database};
+use crate::database::Database;
+use crate::database_reader::read_database;
 use crate::search::{search, SearchInput, SearchResult};
+
 use actix_web::web::Data;
 use actix_web::{get, post, web, App, HttpResponse, HttpServer, Responder, Result};
 use itertools::Itertools;
@@ -73,6 +76,8 @@ async fn main() -> anyhow::Result<()> {
     //     .bind("0.0.0.0:8080")?
     //     .run()
     //     .await?;
+
+    println!("End");
 
     Ok(())
 }

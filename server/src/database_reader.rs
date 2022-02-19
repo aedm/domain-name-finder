@@ -1,43 +1,52 @@
+use crate::database::{LETTER_INDEX, VALID_LETTERS_COUNT};
+use crate::Database;
 use anyhow::Result;
 use flate2::read::GzDecoder;
 use smol_str::SmolStr;
-use std::collections::HashSet;
+use std::collections::{BTreeSet, HashSet};
 use std::fs::File;
 use std::io;
 use std::io::{BufRead, BufReader};
 use std::time::Instant;
+use xz2::read::XzDecoder;
 
-pub type DbEntry = SmolStr;
-pub type Database = HashSet<DbEntry>;
+// pub type DbEntry = SmolStr;
+// pub type Database = HashSet<DbEntry>;
 
 fn read_lines(input_file_name: &str) -> Result<Database> {
     let gz_file = File::open(input_file_name)?;
     let gz_decoder = GzDecoder::new(gz_file);
     let reader = BufReader::new(gz_decoder);
 
-    let mut set = Database::new();
-    // let mut lens = [0; 256];
+    let mut words =
+        vec![
+            HashSet::<SmolStr>::new();
+            VALID_LETTERS_COUNT * VALID_LETTERS_COUNT * VALID_LETTERS_COUNT * VALID_LETTERS_COUNT
+        ];
 
     let mut counter = 0;
     for line in reader.lines() {
         let line = line?;
-        if line.len() <= 3 {
-            set.insert(DbEntry::from(line));
-        } else {
-            set.insert(DbEntry::from(&line[3..]));
+        if line.len() < 3 {
+            continue;
         }
-        // lens[line.unwrap().len()] += 1;
+
+        let b = line.as_bytes();
+        let index = (LETTER_INDEX[b[0] as usize] * VALID_LETTERS_COUNT
+            + LETTER_INDEX[b[1] as usize])
+            * VALID_LETTERS_COUNT
+            + LETTER_INDEX[b[2] as usize];
+        words[index].insert(SmolStr::from(&line[3..]));
+
         counter += 1;
-        if counter % 1_000_000 == 0 {
+        if counter % 10_000_000 == 0 {
             println!("{} million entries loaded.", counter / 1_000_000);
         }
     }
     println!("Total entries: {}", counter);
 
-    // for i in 0..256 {
-    //     println!("lens: {} -> {}", i, lens[i]);
-    // }
-    Ok(set)
+    let db = Database { words };
+    Ok(db)
 }
 
 pub fn read_database() -> Result<Database> {

@@ -12,8 +12,8 @@ use itertools::Itertools;
 use std::borrow::Borrow;
 use std::collections::HashSet;
 use std::sync::{Arc, RwLock};
-use std::thread;
 use std::time::Duration;
+use std::{io, thread};
 
 // This struct represents state
 struct AppState {
@@ -54,9 +54,34 @@ async fn update_database(app_state: web::Data<AppState>) {
     }
 }
 
+// fn test_hashset() -> Result<()> {
+//     const LEN: usize = 6;
+//     const COUNT: usize = 50_000_000;
+//
+//     let mut set = HashSet::<[u8; LEN]>::new();
+//     for i in 1..=COUNT {
+//         let mut x = [0_u8; LEN];
+//         let mut l = i;
+//         for k in 0..LEN {
+//             x[k] = (l % 256) as u8;
+//             l /= 256;
+//         }
+//         set.insert(x);
+//     }
+//
+//     println!("Press enter");
+//     let mut buffer = String::new();
+//     let stdin = io::stdin(); // We get `Stdin` here.
+//     stdin.read_line(&mut buffer)?;
+//     Ok(())
+// }
+
 #[actix_web::main]
 async fn main() -> anyhow::Result<()> {
     println!("Start");
+
+    // test_hashset();
+
     let mut database = read_database()?;
 
     // database.insert("foo".into());

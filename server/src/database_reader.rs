@@ -1,8 +1,7 @@
-use crate::database::{LETTER_INDEX, VALID_LETTERS_COUNT};
 use crate::Database;
 use anyhow::Result;
 use flate2::read::GzDecoder;
-use smol_str::SmolStr;
+use seq_macro::seq;
 use std::collections::{BTreeSet, HashSet};
 use std::fs::File;
 use std::io;
@@ -10,33 +9,27 @@ use std::io::{BufRead, BufReader};
 use std::time::Instant;
 use xz2::read::XzDecoder;
 
-// pub type DbEntry = SmolStr;
-// pub type Database = HashSet<DbEntry>;
-
 fn read_lines(input_file_name: &str) -> Result<Database> {
     let gz_file = File::open(input_file_name)?;
     let gz_decoder = GzDecoder::new(gz_file);
     let reader = BufReader::new(gz_decoder);
 
-    let mut words =
-        vec![
-            HashSet::<SmolStr>::new();
-            VALID_LETTERS_COUNT * VALID_LETTERS_COUNT * VALID_LETTERS_COUNT * VALID_LETTERS_COUNT
-        ];
+    let mut db = Database::new();
 
     let mut counter = 0;
     for line in reader.lines() {
         let line = line?;
-        if line.len() < 3 {
-            continue;
-        }
-
-        let b = line.as_bytes();
-        let index = (LETTER_INDEX[b[0] as usize] * VALID_LETTERS_COUNT
-            + LETTER_INDEX[b[1] as usize])
-            * VALID_LETTERS_COUNT
-            + LETTER_INDEX[b[2] as usize];
-        words[index].insert(SmolStr::from(&line[3..]));
+        seq!(N in 1..64 {
+            match line.len() {
+                #(
+                     N => {
+                        let array: &[u8; N] = &line.as_bytes()[0..N].try_into().unwrap();
+                        db.words_~N.insert(*array);
+                     },
+                )*
+                _ => panic!("Invalid length"),
+            }
+        });
 
         counter += 1;
         if counter % 10_000_000 == 0 {
@@ -44,8 +37,6 @@ fn read_lines(input_file_name: &str) -> Result<Database> {
         }
     }
     println!("Total entries: {}", counter);
-
-    let db = Database { words };
     Ok(db)
 }
 
@@ -64,24 +55,3 @@ pub fn read_database() -> Result<Database> {
 
     db
 }
-
-// fn main() -> Result<()> {
-//     let now = Instant::now();
-//     let mut set = read_lines("com.zone.46792.filtered.txt.gz")?;
-//     let elapsed = now.elapsed().as_micros();
-//     println!("Input read in {} sec.", elapsed as f64 / 1000000.0);
-//
-//     println!("Press enter");
-//     let mut buffer = String::new();
-//     let stdin = io::stdin(); // We get `Stdin` here.
-//     stdin.read_line(&mut buffer)?;
-//
-//     set.clear();
-//
-//     println!("Press enter 2");
-//     let mut buffer = String::new();
-//     let stdin = io::stdin(); // We get `Stdin` here.
-//     stdin.read_line(&mut buffer)?;
-//
-//     Ok(())
-// }

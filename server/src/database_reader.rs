@@ -10,30 +10,42 @@ use std::time::Instant;
 use tokio::sync::mpsc::{channel, Receiver, Sender};
 use xz2::read::XzDecoder;
 
+const INPUT_FILE_PATH: &str = "com.zone.filtered.txt.gz";
+const CHANNEL_BATCH_SIZE: usize = 50_000;
+
 async fn read_input_from_file(sender: Sender<Vec<String>>) -> Result<()> {
-    let path = "com.zone.filtered.txt.gz";
-    println!("Reading from {}...", path);
-
-    let gz_file = File::open(path)?;
-    let gz_decoder = GzDecoder::new(gz_file);
-    let reader = BufReader::new(gz_decoder);
-
-    let mut counter = 0;
-
-    const CAP: usize = 10_000;
-    let mut v = Vec::with_capacity(CAP);
-    for line in reader.lines() {
-        v.push(line?);
-        if v.len() == CAP {
-            sender.send(v).await?;
-            v = Vec::with_capacity(CAP);
+    println!("Reading from {}...", INPUT_FILE_PATH);
+    let reader = BufReader::new(GzDecoder::new(File::open(INPUT_FILE_PATH)?));
+    let mut batch = Vec::with_capacity(CHANNEL_BATCH_SIZE);
+    for (counter, line) in reader.lines().enumerate() {
+        batch.push(line?);
+        if batch.len() == CHANNEL_BATCH_SIZE {
+            sender.send(batch).await?;
+            batch = Vec::with_capacity(CHANNEL_BATCH_SIZE);
         }
-        counter += 1;
         if counter % 10_000_000 == 0 {
             println!("{} million entries loaded.", counter / 1_000_000);
         }
     }
-    sender.send(v).await?;
+    sender.send(batch).await?;
+    Ok(())
+}
+
+fn read_input_from_file_blocking(sender: Sender<Vec<String>>) -> Result<()> {
+    println!("Reading from {}...", INPUT_FILE_PATH);
+    let reader = BufReader::new(GzDecoder::new(File::open(INPUT_FILE_PATH)?));
+    let mut batch = Vec::with_capacity(CHANNEL_BATCH_SIZE);
+    for (counter, line) in reader.lines().enumerate() {
+        batch.push(line?);
+        if batch.len() == CHANNEL_BATCH_SIZE {
+            sender.blocking_send(batch)?;
+            batch = Vec::with_capacity(CHANNEL_BATCH_SIZE);
+        }
+        if counter % 10_000_000 == 0 {
+            println!("{} million entries loaded.", counter / 1_000_000);
+        }
+    }
+    sender.blocking_send(batch)?;
     Ok(())
 }
 
@@ -41,72 +53,28 @@ async fn distribute(
     mut recv: Receiver<Vec<String>>,
     senders: Vec<Sender<Vec<String>>>,
 ) -> Result<()> {
-    const CAP: usize = 1_000;
-    let mut batches = vec![Vec::new(); 64];
     while let Some(lines) = recv.recv().await {
+        let mut batches = vec![Vec::with_capacity(CHANNEL_BATCH_SIZE); 64];
         for line in lines {
             batches[line.len()].push(line);
         }
-        for i in 1..64 {
-            if batches[i].len() >= CAP {
-                senders[i - 1]
-                    .send(std::mem::replace(&mut batches[i], Vec::new()))
-                    .await?;
+        for (i, v) in batches.into_iter().enumerate() {
+            if v.len() > 0 {
+                senders[i - 1].send(v).await?;
             }
-        }
-    }
-    for i in 1..64 {
-        if batches[i].len() > 0 {
-            senders[i - 1]
-                .send(std::mem::replace(&mut batches[i], Vec::new()))
-                .await?;
         }
     }
     Ok(())
 }
 
 async fn build_hash_set<const N: usize>(mut recv: Receiver<Vec<String>>) -> HashSet<[u8; N]> {
-    println!("Hashset builder {}", N);
     let mut set = HashSet::<[u8; N]>::new();
     while let Some(lines) = recv.recv().await {
-        for line in lines {
-            let array: &[u8; N] = &line.as_bytes()[0..N].try_into().unwrap();
-            set.insert(*array);
-        }
+        lines.into_iter().for_each(|line| {
+            set.insert(line.as_bytes()[0..N].try_into().unwrap());
+        });
     }
     set
-}
-
-fn read_file_single_step() -> Result<Database> {
-    let input_file_name = "com.zone.filtered.txt.gz";
-    let gz_file = File::open(input_file_name)?;
-    let gz_decoder = GzDecoder::new(gz_file);
-    let reader = BufReader::new(gz_decoder);
-
-    let mut db = Database::new();
-
-    let mut counter = 0;
-    for line in reader.lines() {
-        let line = line?;
-        seq!(N in 1..64 {
-            match line.len() {
-                #(
-                     N => {
-                        let array: &[u8; N] = &line.as_bytes()[0..N].try_into().unwrap();
-                        db.words_~N.insert(*array);
-                     },
-                )*
-                _ => panic!("Invalid length"),
-            }
-        });
-
-        counter += 1;
-        if counter % 10_000_000 == 0 {
-            println!("{} million entries loaded.", counter / 1_000_000);
-        }
-    }
-    println!("Total entries: {}", counter);
-    Ok(db)
 }
 
 pub async fn read_database() -> Result<Database> {
@@ -114,37 +82,39 @@ pub async fn read_database() -> Result<Database> {
 
     let now = Instant::now();
 
-    let (input_to_filter_sender, mut input_to_filter_recv) = channel::<Vec<String>>(1_000);
-    let mut length_senders = vec![];
+    let (input_to_distributor_sender, mut input_to_distributor_recv) =
+        channel::<Vec<String>>(1_000);
+    let mut distributor_to_builder_senders = vec![];
     seq!(N in 1..64 {
-        let (sender, mut length_receiver_~N) = channel::<Vec<String>>(1_000);
-        length_senders.push(sender);
+        let (sender, mut distributor_to_builder_receiver) = channel::<Vec<String>>(1_000);
+        distributor_to_builder_senders.push(sender);
+        let hashset_builder_task_~N = tokio::spawn(async move {
+            build_hash_set::<N>(distributor_to_builder_receiver).await
+        });
     });
 
-    let reader_task =
-        tokio::spawn(async move { read_input_from_file(input_to_filter_sender).await });
-    let distribute_task =
-        tokio::spawn(async move { distribute(input_to_filter_recv, length_senders).await });
-    seq!(N in 1..64 {
-       let hashset_builder_task_~N = tokio::spawn(async move { build_hash_set::<N>(length_receiver_~N).await });
+    let file_reader_task =
+        tokio::spawn(async move { read_input_from_file(input_to_distributor_sender).await });
+    let distributor_task = tokio::spawn(async move {
+        distribute(input_to_distributor_recv, distributor_to_builder_senders).await
     });
 
-    reader_task.await?;
-    distribute_task.await?;
-
+    // Await all tasks before asserting on their success
     seq!(N in 1..64 {
-       let words_~N = hashset_builder_task_~N.await?;
+        let db = Database {
+            #(
+                words_~N: hashset_builder_task_~N.await?,
+            )*
+        };
     });
+    let distributor_result = distributor_task.await?;
+    let reader_result = file_reader_task.await?;
 
-    // let db = read_file_single_step();
+    // Assert tasks' success
+    reader_result?;
+    distributor_result?;
 
-    let elapsed = now.elapsed().as_micros();
-    println!("Input read in {} sec.", elapsed as f64 / 1000000.0);
+    println!("Input read in {:.2?} sec.", now.elapsed());
 
-    println!("Press enter");
-    let mut buffer = String::new();
-    let stdin = io::stdin(); // We get `Stdin` here.
-    stdin.read_line(&mut buffer)?;
-
-    Ok(Database::new())
+    Ok(db)
 }

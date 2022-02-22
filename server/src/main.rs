@@ -9,6 +9,7 @@ use crate::search::{search, SearchInput, SearchResult};
 use actix_web::web::Data;
 use actix_web::{get, post, web, App, HttpResponse, HttpServer, Responder, Result};
 use itertools::Itertools;
+use peak_alloc::PeakAlloc;
 use std::borrow::Borrow;
 use std::collections::HashSet;
 use std::sync::{Arc, RwLock};
@@ -55,54 +56,32 @@ async fn update_database(app_state: web::Data<AppState>) {
     }
 }
 
-// fn test_hashset() -> Result<()> {
-//     const LEN: usize = 6;
-//     const COUNT: usize = 50_000_000;
-//
-//     let mut set = HashSet::<[u8; LEN]>::new();
-//     for i in 1..=COUNT {
-//         let mut x = [0_u8; LEN];
-//         let mut l = i;
-//         for k in 0..LEN {
-//             x[k] = (l % 256) as u8;
-//             l /= 256;
-//         }
-//         set.insert(x);
-//     }
-//
-//     println!("Press enter");
-//     let mut buffer = String::new();
-//     let stdin = io::stdin(); // We get `Stdin` here.
-//     stdin.read_line(&mut buffer)?;
-//     Ok(())
-// }
+#[global_allocator]
+static PEAK_ALLOC: PeakAlloc = PeakAlloc;
 
 // #[actix_web::main]
 #[tokio::main]
 async fn main() -> anyhow::Result<()> {
     println!("Start");
 
-    // test_hashset();
-
     let mut database = read_database().await?;
 
-    // database.insert("foo".into());
-    // database.insert("bar".into());
-    //
-    // let app_state = web::Data::new(AppState {
-    //     app_name: String::from("Actix-web"),
-    //     database: RwLock::new(Arc::new(database)),
-    // });
-    //
+    println!("Memory usage: {} MB", PEAK_ALLOC.current_usage_as_mb());
+
+    let app_state = web::Data::new(AppState {
+        app_name: String::from("Actix-web"),
+        database: RwLock::new(Arc::new(database)),
+    });
+
     // let app_state_clone = app_state.clone();
     // actix_web::rt::spawn(async move {
     //     update_database(app_state_clone).await;
     // });
     //
-    // HttpServer::new(move || App::new().app_data(app_state.clone()).service(hello))
-    //     .bind("0.0.0.0:8080")?
-    //     .run()
-    //     .await?;
+    HttpServer::new(move || App::new().app_data(app_state.clone()).service(hello))
+        .bind("0.0.0.0:8080")?
+        .run()
+        .await?;
 
     println!("End");
 

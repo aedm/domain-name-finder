@@ -82,7 +82,7 @@ async fn main() -> anyhow::Result<()> {
 
     // test_hashset();
 
-    let mut database = read_database()?;
+    let mut database = read_database().await?;
 
     // database.insert("foo".into());
     // database.insert("bar".into());

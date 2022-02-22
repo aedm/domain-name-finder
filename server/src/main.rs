@@ -39,7 +39,8 @@ async fn hello(search_input: web::Json<SearchInput>, data: web::Data<AppState>) 
 async fn update_database(app_state: web::Data<AppState>) {
     let mut counter = 0;
     loop {
-        actix_web::rt::time::delay_for(Duration::from_millis(1000)).await;
+        // actix_web::rt::time::delay_for(Duration::from_millis(1000)).await;
+        tokio::time::sleep(Duration::from_millis(1000)).await;
 
         // counter += 1;
         // println!("counter: {}", counter);
@@ -76,7 +77,8 @@ async fn update_database(app_state: web::Data<AppState>) {
 //     Ok(())
 // }
 
-#[actix_web::main]
+// #[actix_web::main]
+#[tokio::main]
 async fn main() -> anyhow::Result<()> {
     println!("Start");
 

@@ -3,24 +3,14 @@ use seq_macro::seq;
 use smol_str::SmolStr;
 use std::collections::{BTreeSet, HashSet};
 
-// pub const VALID_LETTERS: &str = "abcdefghijklmnopqrstuvwxz0123456789-";
-// pub const VALID_LETTERS_COUNT: usize = VALID_LETTERS.len();
-// pub const MAX_DOMAIN_LENGTH: usize = 63;
+#[macro_export]
+macro_rules! for_each_domain_length {
+    ($l:tt) => {
+        seq! {N in 0..64 $l}
+    };
+}
 
-// pub const LETTER_INDEX: [usize; 256] = {
-//     let mut x = [0usize; 256];
-//     let mut i = 0usize;
-//     while i < VALID_LETTERS.len() {
-//         x[VALID_LETTERS.as_bytes()[i] as usize] = i;
-//         i += 1;
-//     }
-//     x
-// };
-
-// pub type DatabaseWords =
-//     [HashSet<SmolStr>; VALID_LETTERS_COUNT * VALID_LETTERS_COUNT * VALID_LETTERS_COUNT];
-
-seq!(N in 1..64 {
+for_each_domain_length!({
     pub struct Database {
         #(
             pub words_~N: HashSet<[u8; N]>,
@@ -28,25 +18,25 @@ seq!(N in 1..64 {
     }
 });
 
-// pub struct Database {
-//     pub words: Vec<HashSet<SmolStr>>,
-// }
-
 impl Database {
     pub fn new() -> Database {
-        seq!(N in 1..64 {
+        for_each_domain_length!({
             Database {
                 #(
-                     words_~N: HashSet::new(),
+                    words_~N: HashSet::new(),
                 )*
             }
         })
     }
 
     pub fn contains(&self, word: &str) -> bool {
-        if word.len() < 3 {
-            return true;
-        }
-        return false;
+        for_each_domain_length!({
+            match word.len() {
+                #(
+                    N => self.words_~N.contains::<[u8; N]>(&word.as_bytes()[0..N].try_into().unwrap()),
+                )*
+                _ => false,
+            }
+        })
     }
 }

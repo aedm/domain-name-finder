@@ -4,11 +4,12 @@ mod search;
 
 use crate::database::Database;
 use crate::database_reader::read_database;
-use crate::search::{search, SearchInput, SearchResult};
+use crate::search::{batch_lookup, search, BatchLookupInput, SearchInput, SearchResult};
 
 use actix_web::web::Data;
 use actix_web::{get, post, web, App, HttpResponse, HttpServer, Responder, Result};
 use itertools::Itertools;
+use peak_alloc::PeakAlloc;
 use std::borrow::Borrow;
 use std::collections::HashSet;
 use std::sync::{Arc, RwLock};
@@ -18,89 +19,58 @@ use std::{io, thread};
 // This struct represents state
 struct AppState {
     app_name: String,
-    database: RwLock<Arc<Database>>,
+    database: Arc<Database>,
 }
 
 #[post("/api/search")]
-async fn hello(search_input: web::Json<SearchInput>, data: web::Data<AppState>) -> impl Responder {
-    let database = data.database.read().unwrap().clone();
-    let result = search(&search_input, &database);
-    // Ok(result)
+async fn search_endpoint(
+    search_input: web::Json<SearchInput>,
+    data: web::Data<AppState>,
+) -> impl Responder {
+    let result = search(&data.database, &search_input);
     web::Json(result)
-
-    // let words = database.iter().join(",");
-    // HttpResponse::Ok().body(format!(
-    //     "words: {}, thread: {:?}\n",
-    //     words,
-    //     thread::current().id()
-    // ))
 }
 
-async fn update_database(app_state: web::Data<AppState>) {
-    let mut counter = 0;
-    loop {
-        actix_web::rt::time::delay_for(Duration::from_millis(1000)).await;
-
-        // counter += 1;
-        // println!("counter: {}", counter);
-        // let heavy: i64 = (0i64..100_000_000).map(|x| (x + counter) % 2).sum();
-        // println!("heavy: {}", heavy);
-        //
-        // let mut new_db = Database::new();
-        // new_db.insert(format!("counter {}", counter));
-        // new_db.insert("lézer".into());
-        // let mut db_ref = app_state.database.write().unwrap();
-        // *db_ref = Arc::new(new_db);
-    }
+#[post("/api/batch-lookup")]
+async fn batch_lookup_endpoint(
+    input: web::Json<BatchLookupInput>,
+    data: web::Data<AppState>,
+) -> impl Responder {
+    web::Json(batch_lookup(&data.database, input.into_inner()))
 }
 
-// fn test_hashset() -> Result<()> {
-//     const LEN: usize = 6;
-//     const COUNT: usize = 50_000_000;
-//
-//     let mut set = HashSet::<[u8; LEN]>::new();
-//     for i in 1..=COUNT {
-//         let mut x = [0_u8; LEN];
-//         let mut l = i;
-//         for k in 0..LEN {
-//             x[k] = (l % 256) as u8;
-//             l /= 256;
-//         }
-//         set.insert(x);
-//     }
-//
-//     println!("Press enter");
-//     let mut buffer = String::new();
-//     let stdin = io::stdin(); // We get `Stdin` here.
-//     stdin.read_line(&mut buffer)?;
-//     Ok(())
-// }
+#[global_allocator]
+static PEAK_ALLOC: PeakAlloc = PeakAlloc;
 
-#[actix_web::main]
+// #[actix_web::main]
+#[tokio::main]
 async fn main() -> anyhow::Result<()> {
     println!("Start");
 
-    // test_hashset();
+    let mut database = read_database().await?;
 
-    let mut database = read_database()?;
+    println!("Memory usage: {:.1} MB", PEAK_ALLOC.current_usage_as_mb());
 
-    // database.insert("foo".into());
-    // database.insert("bar".into());
-    //
-    // let app_state = web::Data::new(AppState {
-    //     app_name: String::from("Actix-web"),
-    //     database: RwLock::new(Arc::new(database)),
-    // });
-    //
+    let app_state = web::Data::new(AppState {
+        app_name: String::from("Actix-web"),
+        database: Arc::new(database),
+    });
+
     // let app_state_clone = app_state.clone();
     // actix_web::rt::spawn(async move {
     //     update_database(app_state_clone).await;
     // });
     //
-    // HttpServer::new(move || App::new().app_data(app_state.clone()).service(hello))
-    //     .bind("0.0.0.0:8080")?
-    //     .run()
-    //     .await?;
+    let address = "0.0.0.0:8080";
+    println!("Serving on {}", address);
+    HttpServer::new(move || {
+        App::new()
+            .app_data(app_state.clone())
+            .service(search_endpoint)
+    })
+    .bind(address)?
+    .run()
+    .await?;
 
     println!("End");
 

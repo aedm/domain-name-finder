@@ -1,4 +1,4 @@
-use crate::Database;
+use crate::{for_each_domain_length, Database};
 use anyhow::Result;
 use flate2::read::GzDecoder;
 use seq_macro::seq;
@@ -60,7 +60,7 @@ async fn distribute(
         }
         for (i, v) in batches.into_iter().enumerate() {
             if v.len() > 0 {
-                senders[i - 1].send(v).await?;
+                senders[i].send(v).await?;
             }
         }
     }
@@ -85,7 +85,7 @@ pub async fn read_database() -> Result<Database> {
     let (input_to_distributor_sender, mut input_to_distributor_recv) =
         channel::<Vec<String>>(1_000);
     let mut distributor_to_builder_senders = vec![];
-    seq!(N in 1..64 {
+    for_each_domain_length!({
         let (sender, mut distributor_to_builder_receiver) = channel::<Vec<String>>(1_000);
         distributor_to_builder_senders.push(sender);
         let hashset_builder_task_~N = tokio::spawn(async move {
@@ -100,15 +100,16 @@ pub async fn read_database() -> Result<Database> {
     });
 
     // Await all tasks before asserting on their success
-    seq!(N in 1..64 {
+    let distributor_result = distributor_task.await?;
+    let reader_result = file_reader_task.await?;
+
+    for_each_domain_length!({
         let db = Database {
             #(
                 words_~N: hashset_builder_task_~N.await?,
             )*
         };
     });
-    let distributor_result = distributor_task.await?;
-    let reader_result = file_reader_task.await?;
 
     // Assert tasks' success
     reader_result?;

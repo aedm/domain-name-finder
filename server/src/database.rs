@@ -3,7 +3,14 @@ use seq_macro::seq;
 use smol_str::SmolStr;
 use std::collections::{BTreeSet, HashSet};
 
-seq!(N in 1..64 {
+#[macro_export]
+macro_rules! for_each_domain_length {
+    ($l:tt) => {
+        seq! {N in 0..64 $l}
+    };
+}
+
+for_each_domain_length!({
     pub struct Database {
         #(
             pub words_~N: HashSet<[u8; N]>,
@@ -13,7 +20,7 @@ seq!(N in 1..64 {
 
 impl Database {
     pub fn new() -> Database {
-        seq!(N in 1..64 {
+        for_each_domain_length!({
             Database {
                 #(
                     words_~N: HashSet::new(),
@@ -23,7 +30,7 @@ impl Database {
     }
 
     pub fn contains(&self, word: &str) -> bool {
-        seq!(N in 1..64 {
+        for_each_domain_length!({
             match word.len() {
                 #(
                     N => self.words_~N.contains::<[u8; N]>(&word.as_bytes()[0..N].try_into().unwrap()),

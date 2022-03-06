@@ -1,7 +1,5 @@
-use actix_web::web::Data;
 use seq_macro::seq;
-use smol_str::SmolStr;
-use std::collections::{BTreeSet, HashSet};
+use std::collections::HashSet;
 
 #[macro_export]
 macro_rules! for_each_domain_length {

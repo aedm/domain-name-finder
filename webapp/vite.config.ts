@@ -13,7 +13,7 @@ export default defineConfig({
 	server: {
 		proxy: {
 			// string shorthand
-			'/api': 'http://localhost:8080',
+			'/api': 'http://localhost:8000',
 			// with options
 			// '/api': {
 			// 	target: 'http://jsonplaceholder.typicode.com',

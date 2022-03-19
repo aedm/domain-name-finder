@@ -2,13 +2,11 @@ use crate::{for_each_domain_length, Database};
 use anyhow::Result;
 use flate2::read::GzDecoder;
 use seq_macro::seq;
-use std::collections::{BTreeSet, HashSet};
+use std::collections::HashSet;
 use std::fs::File;
-use std::io;
 use std::io::{BufRead, BufReader};
 use std::time::Instant;
 use tokio::sync::mpsc::{channel, Receiver, Sender};
-use xz2::read::XzDecoder;
 
 const INPUT_FILE_PATH: &str = "com.zone.filtered.txt.gz";
 const CHANNEL_BATCH_SIZE: usize = 50_000;
@@ -82,11 +80,10 @@ pub async fn read_database() -> Result<Database> {
 
     let now = Instant::now();
 
-    let (input_to_distributor_sender, mut input_to_distributor_recv) =
-        channel::<Vec<String>>(1_000);
+    let (input_to_distributor_sender, input_to_distributor_recv) = channel::<Vec<String>>(1_000);
     let mut distributor_to_builder_senders = vec![];
     for_each_domain_length!({
-        let (sender, mut distributor_to_builder_receiver) = channel::<Vec<String>>(1_000);
+        let (sender, distributor_to_builder_receiver) = channel::<Vec<String>>(1_000);
         distributor_to_builder_senders.push(sender);
         let hashset_builder_task_~N = tokio::spawn(async move {
             build_hash_set::<N>(distributor_to_builder_receiver).await

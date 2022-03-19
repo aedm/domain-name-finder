@@ -6,12 +6,8 @@ use crate::database::Database;
 use crate::database_reader::read_database;
 use crate::search::{batch_lookup, search, BatchLookupInput, SearchInput, SearchResult};
 
-use actix_web::web::Data;
-use actix_web::{error, get, post, web, App, HttpResponse, HttpServer, Responder, Result};
+use actix_web::{error, post, web, App, HttpResponse, HttpServer, Responder, Result};
 use peak_alloc::PeakAlloc;
-use std::sync::Arc;
-use std::time::Duration;
-use std::{io, thread};
 
 // This struct represents state
 struct AppState {
@@ -30,10 +26,12 @@ impl AppState {
 async fn search_endpoint(
     search_input: web::Json<SearchInput>,
     data: web::Data<AppState>,
-) -> impl Responder {
-    let database = data.database.as_ref().unwrap();
-    let result = search(database, &search_input);
-    web::Json(result)
+) -> Result<impl Responder> {
+    let database = data.database.as_ref();
+    let result = search(database, &search_input)
+        .await
+        .map_err(|err| error::ErrorInternalServerError(err.to_string()))?;
+    Ok(web::Json(result))
 }
 
 #[post("/api/batch-lookup")]
@@ -55,11 +53,15 @@ async fn main() -> anyhow::Result<()> {
 
     let is_dev_server = std::env::var("DEV_SERVER").is_ok();
 
-    let database = read_database().await?;
+    let database = if is_dev_server {
+        None
+    } else {
+        Some(read_database().await?)
+    };
     println!("Memory usage: {:.1} MB", PEAK_ALLOC.current_usage_as_mb());
 
     let app_state = AppState {
-        database: Some(database),
+        database,
         // database: None,
     };
     let app_state_wrapped = web::Data::new(app_state);

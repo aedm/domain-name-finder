@@ -27,7 +27,7 @@ async function doSearch() {
   axiosPromise = axios.post('/api/search', payload);
   result.value = await axiosPromise;
   axiosPromise = null;
-  if (searchInput != debouncedInput.value) setTimeout(doSearch, 0);
+  if (searchInput != debouncedInput.value) setTimeout(doSearch, 50);
 }
 
 async function performSearch() {
@@ -38,7 +38,7 @@ async function performSearch() {
 
 function debounceSearch() {
   clearTimeout(debounce!);
-  debounce = setTimeout(performSearch, 200);
+  debounce = setTimeout(performSearch, 0);
 }
 
 watch(userInput, () => debounceSearch());

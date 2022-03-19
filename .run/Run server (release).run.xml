@@ -1,6 +1,6 @@
 <component name="ProjectRunConfigurationManager">
-  <configuration default="false" name="Run server (debug)" type="CargoCommandRunConfiguration" factoryName="Cargo Command">
-    <option name="command" value="run --package server --bin server --manifest-path ../server/Cargo.toml" />
+  <configuration default="false" name="Run server (release)" type="CargoCommandRunConfiguration" factoryName="Cargo Command">
+    <option name="command" value="run --package server --bin server --release --manifest-path ../server/Cargo.toml" />
     <option name="workingDirectory" value="file://$PROJECT_DIR$/db" />
     <option name="channel" value="DEFAULT" />
     <option name="requiredFeatures" value="true" />
@@ -10,7 +10,6 @@
     <option name="backtrace" value="SHORT" />
     <envs>
       <env name="RUSTFLAGS" value="-A dead_code -A unused_variables -A unused_mut -A unused_imports" />
-      <env name="DEV_SERVER" value="1" />
     </envs>
     <option name="isRedirectInput" value="false" />
     <option name="redirectInputPath" value="" />

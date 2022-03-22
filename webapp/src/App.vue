@@ -1,58 +1,44 @@
 <script setup lang='ts'>
 import { computed, ref, watch } from 'vue';
 import axios, { AxiosResponse } from 'axios';
+import Textbox from '@/components/Textbox.vue';
+import { search, SearchResult } from '@/lib/search';
 
 const userInput = ref('enter some words here ');
-const debouncedInput = ref(userInput.value);
-let searchInput = '';
-let axiosPromise = null as Promise<AxiosResponse> | null;
-const result = ref(null as AxiosResponse | null);
+const result = ref(null as SearchResult | null);
 
-function sortList(list?: Array<String>): Array<String> {
-  let sorted = list ? [...list] : [];
-  sorted.sort();
-  return sorted;
-}
+// const result = ref(null as AxiosResponse | null);
 
-const free = computed(() => sortList(result.value?.data?.free));
-const reserved = computed(() => sortList(result.value?.data?.reserved));
+const free = computed(() => result.value?.free);
+const reserved = computed(() => result.value?.reserved);
 
-let debounce: (NodeJS.Timeout | undefined) = undefined;
+let requestPromise = null as Promise<SearchResult> | null;
 
 async function doSearch() {
-  if (!!axiosPromise) return;
-  searchInput = debouncedInput.value;
-  const words = searchInput.toLowerCase().split(/[\s,]+/).filter((x) => x != '');
-  const payload = { words };
-  axiosPromise = axios.post('/api/search', payload);
-  result.value = await axiosPromise;
-  axiosPromise = null;
-  if (searchInput != debouncedInput.value) setTimeout(doSearch, 50);
+  if (!!requestPromise) return;
+
+  requestPromise = search({ postfixes: '', prefixes: '', words: userInput.value });
+  result.value = await requestPromise;
+  requestPromise = null;
+
+  // searchInput = userInput.value;
+  // const words = searchInput.toLowerCase().split(/[\s,]+/).filter((x) => x != '');
+  // const payload = { words };
+  // console.log("AXIOS", searchInput);
+  // axiosPromise = axios.post('/api/search', payload);
+  // result.value = await axiosPromise;
+  // axiosPromise = null;
+  if (searchInput != userInput.value) setTimeout(doSearch, 0);
 }
 
-async function performSearch() {
-  clearTimeout(debounce!);
-  debouncedInput.value = userInput.value;
-  doSearch();
-}
-
-function debounceSearch() {
-  clearTimeout(debounce!);
-  debounce = setTimeout(performSearch, 0);
-}
-
-watch(userInput, () => debounceSearch());
-
+watch(userInput, () => doSearch());
 doSearch();
 
 </script>
 
 <template>
   <div class='container mx-auto mt-6'>
-    <input
-      class='shadow appearance-none border rounded w-full py-2 px-3 text-gray-700 leading-tight focus:outline-none focus:shadow-outline'
-      type='text' placeholder='enter search words' v-model='userInput' @keydown.enter='performSearch'
-      @keydown.space='performSearch' autofocus />
+    <Textbox v-model='userInput' />
     <div v-if='free.length > 0' class='mt-6'>
       <p class='mt-6'>Available domains:</p>
       <p v-for='name in free' class='text-xl font-semibold'>

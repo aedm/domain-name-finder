@@ -1,44 +1,20 @@
 <script setup lang='ts'>
-import { computed, ref, watch } from 'vue';
-import axios, { AxiosResponse } from 'axios';
+import {computed, ref, watchEffect} from 'vue';
 import Textbox from '@/components/Textbox.vue';
-import { search, SearchResult } from '@/lib/search';
+import {useSearch} from '@/lib/searchHook';
 
 const userInput = ref('enter some words here ');
-const result = ref(null as SearchResult | null);
-
-// const result = ref(null as AxiosResponse | null);
-
+const {setInput, result} = useSearch();
 const free = computed(() => result.value?.free);
 const reserved = computed(() => result.value?.reserved);
 
-let requestPromise = null as Promise<SearchResult> | null;
-
-async function doSearch() {
-  if (!!requestPromise) return;
-
-  requestPromise = search({ postfixes: '', prefixes: '', words: userInput.value });
-  result.value = await requestPromise;
-  requestPromise = null;
-
-  // searchInput = userInput.value;
-  // const words = searchInput.toLowerCase().split(/[\s,]+/).filter((x) => x != '');
-  // const payload = { words };
-  // console.log("AXIOS", searchInput);
-  // axiosPromise = axios.post('/api/search', payload);
-  // result.value = await axiosPromise;
-  // axiosPromise = null;
-  if (searchInput != userInput.value) setTimeout(doSearch, 0);
-}
-
-watch(userInput, () => doSearch());
-doSearch();
+watchEffect(() => setInput({postfixes: "", prefixes: "", words: userInput.value}));
 
 </script>
 
 <template>
   <div class='container mx-auto mt-6'>
-    <Textbox v-model='userInput' />
+    <Textbox v-model='userInput'/>
     <div v-if='free.length > 0' class='mt-6'>
       <p class='mt-6'>Available domains:</p>
       <p v-for='name in free' class='text-xl font-semibold'>

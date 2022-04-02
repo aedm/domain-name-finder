@@ -19,7 +19,7 @@ function update() {
 
 watch(userInput, () => {
   clearTimeout(debounce!);
-  debounce = setTimeout(update, 50)
+  debounce = setTimeout(update, 0)
 });
 
 </script>

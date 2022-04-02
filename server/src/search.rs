@@ -1,12 +1,15 @@
 use crate::Database;
 use anyhow::{anyhow, Result};
+use itertools::Itertools;
 use serde::{Deserialize, Serialize};
 use std::borrow::Borrow;
-use std::collections::HashMap;
+use std::collections::{HashMap, HashSet};
 
 #[derive(Deserialize, Debug)]
 pub struct SearchInput {
     pub words: Vec<String>,
+    pub prefixes: Vec<String>,
+    pub postfixes: Vec<String>,
 }
 
 #[derive(Serialize, Debug)]
@@ -43,10 +46,13 @@ pub struct BatchLookupResponse {
 }
 
 pub async fn search(db: Option<&Database>, input: &SearchInput) -> Result<SearchResult> {
-    let words = &input.words;
+    let prefixes = HashSet::<&String>::from_iter(input.prefixes.iter().chain(input.words.iter()));
+    let postfixes = HashSet::<&String>::from_iter(input.postfixes.iter().chain(input.words.iter()));
+    let words = HashSet::<&String>::from_iter(input.words.iter());
+
     let mut terms = vec![];
-    for w1 in words {
-        for w2 in words {
+    for w1 in &prefixes {
+        for w2 in &postfixes {
             if w1 != w2 {
                 terms.push(format!("{w1}{w2}"));
             }

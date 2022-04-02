@@ -1,20 +1,27 @@
 <script setup lang='ts'>
 import {computed, ref, watchEffect} from 'vue';
 import Textbox from '@/components/Textbox.vue';
-import {useSearch} from '@/lib/searchHook';
+import {SearchInput, useSearch} from '@/lib/searchHook';
+import {asType} from "@/lib/asType";
 
-const userInput = ref('enter some words here ');
+const words = ref('enter some words here ');
+const prefixes = ref('prefix ');
+const postfixes = ref('postfix ');
 const {setInput, result} = useSearch();
 const free = computed(() => result.value?.free);
 const reserved = computed(() => result.value?.reserved);
 
-watchEffect(() => setInput({postfixes: "", prefixes: "", words: userInput.value}));
+watchEffect(() => {
+  setInput({postfixes: postfixes.value, prefixes: prefixes.value, words: words.value});
+});
 
 </script>
 
 <template>
   <div class='container mx-auto mt-6'>
-    <Textbox v-model='userInput'/>
+    <Textbox v-model='prefixes'/>
+    <Textbox v-model='words'/>
+    <Textbox v-model='postfixes'/>
     <div v-if='free.length > 0' class='mt-6'>
       <p class='mt-6'>Available domains:</p>
       <p v-for='name in free' class='text-xl font-semibold'>

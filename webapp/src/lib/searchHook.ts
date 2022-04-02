@@ -15,6 +15,8 @@ export interface SearchResult {
 
 interface Payload {
   words: string[];
+  prefixes: string[];
+  postfixes: string[];
 }
 
 interface SearchHook {
@@ -64,13 +66,17 @@ function sortList(list: string[]): string[] {
   return sorted;
 }
 
-// function splitWords(s: string): string[] {
-//   return s.toLowerCase().split(/[\s,]+/).filter((x) => x != '');
-// }
+function splitWords(s: string): string[] {
+  return s.toLowerCase().split(/[\s,]+/).filter((x) => x != '');
+}
 
 function makePayload(input: SearchInput): Payload {
-  const words = input.words.toLowerCase().split(/[\s,]+/).filter((x) => x != '');
+  const words = splitWords(input.words);
+  const prefixes = splitWords(input.prefixes);
+  const postfixes = splitWords(input.postfixes);
   return {
     words,
+    prefixes,
+    postfixes,
   };
 }

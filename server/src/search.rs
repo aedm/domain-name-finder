@@ -10,6 +10,10 @@ pub struct SearchInput {
     pub words: Vec<String>,
     pub prefixes: Vec<String>,
     pub postfixes: Vec<String>,
+    #[serde(rename = "minWordCount")]
+    pub min_word_count: usize,
+    #[serde(rename = "maxWordCount")]
+    pub max_word_count: usize,
 }
 
 #[derive(Serialize, Debug)]
@@ -46,18 +50,52 @@ pub struct BatchLookupResponse {
 }
 
 pub async fn search(db: Option<&Database>, input: &SearchInput) -> Result<SearchResult> {
-    let prefixes = HashSet::<&String>::from_iter(input.prefixes.iter().chain(input.words.iter()));
-    let postfixes = HashSet::<&String>::from_iter(input.postfixes.iter().chain(input.words.iter()));
-    let words = HashSet::<&String>::from_iter(input.words.iter());
+    let mut search_terms = HashSet::<String>::new();
 
-    let mut terms = vec![];
-    for w1 in &prefixes {
-        for w2 in &postfixes {
-            if w1 != w2 {
-                terms.push(format!("{w1}{w2}"));
+    // Single word
+    if input.min_word_count <= 1 && input.max_word_count >= 1 {
+        search_terms.extend(input.prefixes.iter().cloned());
+        search_terms.extend(input.words.iter().cloned());
+        search_terms.extend(input.postfixes.iter().cloned());
+    }
+
+    if input.max_word_count >= 2 {
+        let prefixes =
+            HashSet::<&String>::from_iter(input.prefixes.iter().chain(input.words.iter()));
+        let postfixes =
+            HashSet::<&String>::from_iter(input.postfixes.iter().chain(input.words.iter()));
+        // let words = HashSet::<&String>::from_iter(input.words.iter());
+
+        // Two words
+        if input.min_word_count <= 2 {
+            for w1 in &prefixes {
+                for w2 in &postfixes {
+                    if w1 != w2 {
+                        search_terms.insert(format!("{w1}{w2}"));
+                    }
+                }
+            }
+        }
+
+        // Three words
+        if input.min_word_count <= 3 && input.max_word_count >= 3 {
+            for pre in &prefixes {
+                for word in &input.words {
+                    if pre != &word {
+                        for post in &postfixes {
+                            if pre != post && &word != post {
+                                search_terms.insert(format!("{pre}{word}{post}"));
+                            }
+                        }
+                    }
+                }
             }
         }
     }
+
+    let mut terms = search_terms.into_iter().collect_vec();
+    println!("Word count: {}", terms.len());
+
     let lookup_result = lookup(db, terms).await?;
 
     let mut free = vec![];

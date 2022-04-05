@@ -28,7 +28,7 @@ async fn api_search(
     search_input: web::Json<SearchInput>,
     data: web::Data<AppState>,
 ) -> Result<impl Responder> {
-    println!("/api/search {search_input:?}");
+    // println!("/api/search {search_input:?}");
     let now = Instant::now();
     let database = data.database.as_ref();
     let result = search(database, &search_input)

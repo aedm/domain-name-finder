@@ -6,6 +6,8 @@ export interface SearchInput {
     words: string;
     prefixes: string;
     postfixes: string;
+    minWordCount: number;
+    maxWordCount: number;
 }
 
 export interface SearchResult {
@@ -17,6 +19,8 @@ interface Payload {
     words: string[];
     prefixes: string[];
     postfixes: string[];
+    minWordCount: number;
+    maxWordCount: number;
 }
 
 interface SearchHook {
@@ -77,8 +81,10 @@ function makePayload(input: SearchInput): Payload {
     const prefixes = splitWords(input.prefixes);
     const postfixes = splitWords(input.postfixes);
     return {
+        maxWordCount: input.maxWordCount,
+        minWordCount: input.minWordCount,
         words,
         prefixes,
-        postfixes,
+        postfixes
     };
 }

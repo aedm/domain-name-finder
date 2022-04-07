@@ -56,9 +56,9 @@ async fn fetch_headers(access_token: &str) -> Result<()> {
 
 async fn download_zone_file(access_token: &str) -> Result<()> {
     let res = send_request(ZONE_FILE_URL, Some(access_token), Method::GET, &json!({})).await?;
-    let mut stream = res.bytes_stream();
-    stream.next();
-    download_stream_to_file(stream).await
+    // stream.next();
+    let path = "com.zone.txt.gz";
+    download_stream_to_file(res, path).await
 }
 
 #[tokio::main]

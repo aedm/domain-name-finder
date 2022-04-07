@@ -1,4 +1,4 @@
-use anyhow::{anyhow, Result};
+use anyhow::{anyhow, Context, Result};
 use futures_util::StreamExt;
 use indicatif::{ProgressBar, ProgressStyle};
 use reqwest::Method;
@@ -40,9 +40,7 @@ pub async fn fetch_json<Req: serde::ser::Serialize, Resp: serde::de::Deserialize
     Ok(response.json::<Resp>().await?)
 }
 
-pub async fn download_stream_to_file(
-    mut stream: impl futures_core::Stream<Item = reqwest::Result<Bytes>>,
-) -> Result<()> {
+pub async fn download_stream_to_file(mut res: reqwest::Response, path: &str) -> Result<()> {
     let total_size = res
         .content_length()
         .context("Failed to get content length")?;
@@ -52,12 +50,12 @@ pub async fn download_stream_to_file(
     pb.set_style(ProgressStyle::default_bar()
         .template("{msg}\n{spinner:.green} [{elapsed_precise}] [{wide_bar:.cyan/blue}] {bytes}/{total_bytes} ({bytes_per_sec}, {eta})")
         .progress_chars("#>-"));
-    pb.set_message(format!("Downloading {}", ZONE_FILE_URL));
+    pb.set_message(format!("Downloading {}", path));
 
     // download chunks
-    let path = "com.zone.txt.gz";
     let mut file = File::create(path)?;
     let mut downloaded: u64 = 0;
+    let mut stream = res.bytes_stream();
 
     while let Some(item) = stream.next().await {
         let chunk = item?;
@@ -67,6 +65,6 @@ pub async fn download_stream_to_file(
         pb.set_position(new);
     }
 
-    pb.finish_with_message(format!("Downloaded {} to {}", ZONE_FILE_URL, path));
+    pb.finish_with_message(format!("Downloaded {}", path));
     Ok(())
 }

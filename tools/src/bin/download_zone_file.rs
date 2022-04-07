@@ -55,7 +55,7 @@ async fn fetch_headers(access_token: &str) -> Result<()> {
 
 async fn download_zone_file(access_token: &str) -> Result<()> {
     // Reqwest setup
-    let res = send_request(ZONE_FILE_URL, access_token, Method::HEAD, &json!({})).await?;
+    let res = send_request(ZONE_FILE_URL, access_token, Method::GET, &json!({})).await?;
 
     // let res = client
     //     .get(url)

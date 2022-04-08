@@ -1,11 +1,14 @@
 use anyhow::{anyhow, Context, Result};
+// use tokio_util::io::StreamReader;
 use futures_util::StreamExt;
+use futures_util::TryStreamExt;
 use indicatif::{ProgressBar, ProgressStyle};
 use reqwest::Method;
 use std::cmp::min;
 use std::fs::File;
 use std::io::Write;
 use std::str::Bytes;
+// use tokio_util::io::StreamReader;
 
 pub fn get_env(name: &str) -> Result<String> {
     if let Ok(var) = std::env::var(name) {
@@ -53,10 +56,11 @@ pub async fn download_stream_to_file(mut res: reqwest::Response, path: &str) -> 
     pb.set_message(format!("Downloading {}", path));
 
     // download chunks
+    let mut stream = res.bytes_stream();
     let mut file = File::create(path)?;
     let mut downloaded: u64 = 0;
-    let mut stream = res.bytes_stream();
 
+    // TODO: download speed is slow for some reason
     while let Some(item) = stream.next().await {
         let chunk = item?;
         file.write_all(&chunk)?;
@@ -64,6 +68,13 @@ pub async fn download_stream_to_file(mut res: reqwest::Response, path: &str) -> 
         downloaded = new;
         pb.set_position(new);
     }
+
+    // let mut file = tokio::fs::File::create(path).await?;
+    // fn convert_err(err: reqwest::Error) -> std::io::Error {
+    //     todo!()
+    // }
+    // let mut reader = StreamReader::new(stream.map_err(convert_err));
+    // tokio::io::copy(&mut reader, &mut file).await?;
 
     pb.finish_with_message(format!("Downloaded {}", path));
     Ok(())

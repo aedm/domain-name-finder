@@ -19,3 +19,4 @@ aws-config = "*"
 serde = { version = "*", features = ["derive"] }
 serde_json = "*"
 itertools = "0.10.1"
+async-stream = "0.3.3"

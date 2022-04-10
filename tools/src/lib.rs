@@ -1,4 +1,5 @@
 use anyhow::{anyhow, Context, Result};
+use aws_config::meta::region::RegionProviderChain;
 use futures_util::TryStreamExt;
 use futures_util::{pin_mut, StreamExt};
 use indicatif::{ProgressBar, ProgressStyle};
@@ -63,24 +64,11 @@ pub async fn download_stream_to_file(mut res: reqwest::Response, path: &str) -> 
     let pb_clone = pb.clone();
 
     // download chunks
-    let mut stream = res.bytes_stream();
-    // let mut rrr = StreamReader::new(stream.map(|data| -> Result<_, std::io::Error> {
-    //     // let chunk = item?;
-    //     if let Ok(chunk) = data {
-    //         pb_clone.borrow_mut().inc(chunk.len() as u64);
-    //         return Ok(data);
-    //     }
-    //     Err(std::io::Error::new(ErrorKind::Other, "oh no!"))
-    // }));
-
     // TODO: download speed is slow for some reason
+    let mut stream = res.bytes_stream();
     let pb_stream = async_stream::stream! {
         while let Some(item) = stream.next().await {
             let chunk = item?;
-            // file.write_all(&chunk)?;
-            // let new = min(downloaded + (chunk.len() as u64), total_size);
-            // downloaded += chunk.len() as u64;
-            // pb_clone.borrow_mut().set_position(downloaded);
             pb_clone.borrow_mut().inc(chunk.len() as u64);
             yield Ok(chunk);
         }
@@ -88,13 +76,19 @@ pub async fn download_stream_to_file(mut res: reqwest::Response, path: &str) -> 
     pin_mut!(pb_stream);
 
     let mut file = tokio::fs::File::create(path).await?;
-    fn convert_err(err: reqwest::Error) -> std::io::Error {
-        todo!()
-    }
-    let mut reader = StreamReader::new(pb_stream.map_err(convert_err));
-    tokio::io::copy(&mut reader, &mut file).await?;
+    let mut stream_reader = StreamReader::new(
+        pb_stream
+            .map_err(|_: reqwest::Error| std::io::Error::new(ErrorKind::Other, "Download error")),
+    );
+    tokio::io::copy(&mut stream_reader, &mut file).await?;
 
     pb.borrow_mut()
         .finish_with_message(format!("Downloaded {}", path));
     Ok(())
+}
+
+pub async fn get_aws_s3_client() -> aws_sdk_s3::Client {
+    let region_provider = RegionProviderChain::default_provider();
+    let config = aws_config::from_env().region(region_provider).load().await;
+    aws_sdk_s3::Client::new(&config)
 }

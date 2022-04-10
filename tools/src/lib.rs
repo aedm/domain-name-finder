@@ -3,6 +3,7 @@ use aws_config::meta::region::RegionProviderChain;
 use futures_util::TryStreamExt;
 use futures_util::{pin_mut, StreamExt};
 use indicatif::{ProgressBar, ProgressStyle};
+use itertools::Itertools;
 use reqwest::Method;
 use std::cell::RefCell;
 use std::cmp::min;
@@ -91,4 +92,13 @@ pub async fn get_aws_s3_client() -> aws_sdk_s3::Client {
     let region_provider = RegionProviderChain::default_provider();
     let config = aws_config::from_env().region(region_provider).load().await;
     aws_sdk_s3::Client::new(&config)
+}
+
+pub async fn get_all_files_from_s3_bucket(
+    client: &aws_sdk_s3::Client,
+    bucket_name: &str,
+) -> Result<Vec<String>> {
+    let objects = client.list_objects_v2().bucket(bucket_name).send().await?;
+    let contents = objects.contents.unwrap_or_default();
+    Ok(contents.into_iter().map(|i| i.key).flatten().collect_vec())
 }

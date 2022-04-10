@@ -88,7 +88,7 @@ pub async fn download_stream_to_file(mut res: reqwest::Response, path: &str) -> 
     Ok(())
 }
 
-pub async fn get_aws_s3_client() -> aws_sdk_s3::Client {
+pub async fn make_aws_s3_client() -> aws_sdk_s3::Client {
     let region_provider = RegionProviderChain::default_provider();
     let config = aws_config::from_env().region(region_provider).load().await;
     aws_sdk_s3::Client::new(&config)

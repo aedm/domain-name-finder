@@ -60,9 +60,7 @@ async fn fetch_latest_s3_zone_date(
     Ok(None)
 }
 
-async fn download_zone_file(access_token: &str, latest: Option<&str>) -> Result<()> {
-    let response = send_request(ZONE_FILE_URL, Some(access_token), Method::GET, &json!({})).await?;
-
+fn get_file_date_from_header(response: &Resonse) -> Result<String> {
     let headers = response.headers();
     let last_modified_orig = headers
         .get("last-modified")
@@ -72,6 +70,12 @@ async fn download_zone_file(access_token: &str, latest: Option<&str>) -> Result<
         .format(DATE_FORMAT)
         .to_string();
     println!("Zone file date {last_icann_date:?}");
+    Ok(last_icann_date)
+}
+
+async fn download_zone_file(access_token: &str, latest: Option<&str>) -> Result<()> {
+    let response = send_request(ZONE_FILE_URL, Some(access_token), Method::GET, &json!({})).await?;
+    let last_icann_date = get_file_date_from_header(&response)?;
 
     if let Some(last_processed_date) = latest {
         if last_processed_date >= last_icann_date.as_str() {

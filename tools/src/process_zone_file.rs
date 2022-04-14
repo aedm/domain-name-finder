@@ -1,13 +1,15 @@
 use anyhow::{Context, Result};
-use flate2::read::GzDecoder;
-use flate2::write::GzEncoder;
-use flate2::Compression;
+// use flate2::read::GzDecoder;
+// use flate2::write::GzEncoder;
+// use flate2::Compression;
+use futures_util::TryStreamExt;
 use itertools::Itertools;
 use std::fs::File;
 use std::io::{BufRead, BufReader, Write};
 use std::thread;
 use std::time::Instant;
 use tokio::sync::mpsc::{channel, Receiver, Sender};
+use tokio_util::io::StreamReader;
 
 type Message = Vec<String>;
 
@@ -83,7 +85,16 @@ pub async fn process_zone_file(response: reqwest::Response, output_file_name: &s
 
     // let gz_file = File::open("com.txt.gz")?;
     // let gz_decoder = GzDecoder::new(gz_file);
-    let gz_decoder = GzDecoder::new(response.bytes_stream());
+    fn convert_error(err: reqwest::Error) -> std::io::Error {
+        todo!()
+    }
+    // let stream = response.bytes_stream().map_err(|_: reqwest::Error| {
+    //     std::io::Error::new(std::io::ErrorKind::Other, "Download error")
+    // });
+    let stream = response.bytes_stream().map_err(convert_error);
+    let mut stream_reader = BufReader::new(stream);
+
+    let gz_decoder = GzDecoder::new(stream_reader);
     // let header = gz_decoder
     //     .header()
     //     .with_context(|| "Error reading gz header")?;

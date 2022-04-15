@@ -7,7 +7,6 @@ use chrono::DateTime;
 use dotenv::dotenv;
 use indicatif::{ProgressBar, ProgressStyle};
 use itertools::Itertools;
-use reqwest::blocking::Response;
 use reqwest::Method;
 use serde::{Deserialize, Serialize};
 use serde_json::json;
@@ -35,7 +34,8 @@ async fn fetch_access_token(username: &str, password: &str) -> Result<String> {
         password: &'a str,
     }
 
-    let response: AuthResponse = fetch_json(AUTH_URL, None, &AuthRequest { username, password })?;
+    let response: AuthResponse =
+        fetch_json(AUTH_URL, None, &AuthRequest { username, password }).await?;
     Ok(response.access_token)
 }
 
@@ -43,6 +43,7 @@ async fn fetch_latest_s3_zone_date(
     client: &aws_sdk_s3::Client,
     bucket_name: &str,
 ) -> Result<Option<String>> {
+    println!("fetch_latest_s3_zone_date");
     let files = get_all_files_from_s3_bucket(client, bucket_name).await?;
 
     // TODO: use a regex match instead of ends_with
@@ -58,7 +59,7 @@ async fn fetch_latest_s3_zone_date(
     Ok(None)
 }
 
-fn get_file_date_from_header(response: &reqwest::blocking::Response) -> Result<String> {
+fn get_file_date_from_header(response: &reqwest::Response) -> Result<String> {
     let headers = response.headers();
     let last_modified_orig = headers
         .get("last-modified")
@@ -72,7 +73,7 @@ fn get_file_date_from_header(response: &reqwest::blocking::Response) -> Result<S
 }
 
 async fn download_zone_file(access_token: &str, latest: Option<&str>) -> Result<()> {
-    let response = send_request(ZONE_FILE_URL, Some(access_token), Method::GET, &json!({}))?;
+    let response = send_request(ZONE_FILE_URL, Some(access_token), Method::GET, &json!({})).await?;
     let last_icann_date = get_file_date_from_header(&response)?;
 
     if let Some(last_processed_date) = latest {

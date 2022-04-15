@@ -1,17 +1,14 @@
 use anyhow::{Context, Result};
-// use flate2::read::GzDecoder;
-// use flate2::write::GzEncoder;
-// use flate2::Compression;
-use flate2::read::GzDecoder;
-use flate2::write::GzEncoder;
-use flate2::Compression;
-// use futures_util::TryStreamExt;
+use async_compression::tokio::bufread::GzipDecoder;
+use async_compression::tokio::write::GzipEncoder;
+use futures::stream::TryStreamExt;
 use itertools::Itertools;
 use std::fs::File;
-use std::io::{BufRead, BufReader, Write};
 use std::thread;
 use std::time::Instant;
+use tokio::io::{AsyncBufReadExt, AsyncWriteExt, BufReader};
 use tokio::sync::mpsc::{channel, Receiver, Sender};
+use tokio_util::compat::FuturesAsyncReadCompatExt;
 use tokio_util::io::StreamReader;
 
 type Message = Vec<String>;
@@ -19,12 +16,16 @@ type Message = Vec<String>;
 const CAP: usize = 10_000;
 
 // returns output file name
-async fn read_input<T: std::io::Read>(tx: Sender<Message>, gz_decoder: GzDecoder<T>) -> Result<()> {
-    let reader = BufReader::new(gz_decoder);
+async fn read_input<T: tokio::io::AsyncRead + Unpin>(
+    tx: Sender<Message>,
+    reader: BufReader<T>,
+) -> Result<()> {
+    // let reader = BufReader::new(gz_decoder);
     println!("Reader");
     let mut v = Vec::with_capacity(CAP);
-    for line in reader.lines() {
-        v.push(line?);
+    let mut lines = reader.lines();
+    while let Some(line) = lines.next_line().await? {
+        v.push(line);
         if v.len() == CAP {
             tx.send(v).await?;
             v = Vec::with_capacity(CAP);
@@ -64,62 +65,46 @@ async fn filter_lines(
         }
         if v.len() > 0 {
             last_domain = String::from(v[v.len() - 1]);
-            filter_to_output_sender.send(v.iter().join("\n")).await?;
+            let msg = v.iter().join("\n");
+            filter_to_output_sender.send(format!("{msg}\n")).await?;
         }
     }
-    println!("Total entries: {}", counter);
+    println!("Total entries: {counter}");
     Ok(())
 }
 
-async fn write_output(mut rx: Receiver<String>, output_file_name: String) -> Result<()> {
+async fn write_output(mut rx: Receiver<String>, output_file_name: &str) -> Result<()> {
     // let output_file_name = format!("{}.filtered.txt.gz", original_file_name);
     println!("Writing to '{}'...", output_file_name);
-    let target_file = File::create(&output_file_name)?;
-    let mut writer = GzEncoder::new(target_file, Compression::new(7));
+    let target_file = tokio::fs::File::create(output_file_name).await?;
+    let mut writer = GzipEncoder::new(target_file);
 
     while let Some(lines) = rx.recv().await {
-        writeln!(writer, "{}", lines)?
+        writer.write(lines.as_bytes()).await?;
     }
     Ok(())
 }
 
-pub async fn process_zone_file(
-    response: reqwest::blocking::Response,
-    output_file_name: &str,
-) -> Result<()> {
-    println!("main");
-
-    // let gz_file = File::open("com.txt.gz")?;
-    // let gz_decoder = GzDecoder::new(gz_file);
-    fn convert_error(err: reqwest::Error) -> std::io::Error {
-        todo!()
-    }
-    // let stream = response.bytes_stream().map_err(|_: reqwest::Error| {
-    //     std::io::Error::new(std::io::ErrorKind::Other, "Download error")
-    // });
-    // let stream = response.bytes_stream().map_err(convert_error);
-    let mut stream_reader = BufReader::new(response);
-
-    let gz_decoder = GzDecoder::new(stream_reader);
-    // let header = gz_decoder
-    //     .header()
-    //     .with_context(|| "Error reading gz header")?;
-    // let original_file_name_bytes = header
-    //     .filename()
-    //     .with_context(|| "gz header doesn't contain a file name")?;
-    // let original_file_name = String::from_utf8_lossy(original_file_name_bytes).to_string();
+pub async fn process_zone_file(response: reqwest::Response, output_file_name: &str) -> Result<()> {
+    let stream = response
+        .bytes_stream()
+        .map_err(|e| futures::io::Error::new(futures::io::ErrorKind::Other, e))
+        .into_async_read()
+        .compat();
+    let gzip_decoder = GzipDecoder::new(stream);
+    let buf_reader = tokio::io::BufReader::new(gzip_decoder);
 
     let (input_to_filter_sender, mut input_to_filter_recv) = channel::<Message>(1_000);
     let (filter_to_output_sender, mut filter_to_output_recv) = channel::<String>(1_000);
 
     let now = Instant::now();
 
-    let reader_task = tokio::spawn(async { read_input(input_to_filter_sender, gz_decoder).await });
+    let reader_task = tokio::spawn(async { read_input(input_to_filter_sender, buf_reader).await });
     let filter_task =
         tokio::spawn(async { filter_lines(input_to_filter_recv, filter_to_output_sender).await });
     let output_file_name = output_file_name.to_string();
     let writer_task =
-        tokio::spawn(async { write_output(filter_to_output_recv, output_file_name).await });
+        tokio::spawn(async move { write_output(filter_to_output_recv, &output_file_name).await });
 
     reader_task.await?;
     filter_task.await?;

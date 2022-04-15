@@ -7,16 +7,15 @@ use chrono::DateTime;
 use dotenv::dotenv;
 use indicatif::{ProgressBar, ProgressStyle};
 use itertools::Itertools;
-use reqwest::{Method, Response};
+use reqwest::blocking::Response;
+use reqwest::Method;
 use serde::{Deserialize, Serialize};
 use serde_json::json;
 use std::cmp::min;
 use std::fs::File;
 use std::io::Write;
-use tools::{
-    download_stream_to_file, fetch_json, get_all_files_from_s3_bucket, get_env, make_aws_s3_client,
-    send_request,
-};
+use tools::process_zone_file::process_zone_file;
+use tools::{fetch_json, get_all_files_from_s3_bucket, get_env, make_aws_s3_client, send_request};
 
 const AUTH_URL: &str = &"https://account-api.icann.org/api/authenticate";
 const ZONE_FILE_URL: &str = &"https://czds-api.icann.org/czds/downloads/com.zone";
@@ -36,8 +35,7 @@ async fn fetch_access_token(username: &str, password: &str) -> Result<String> {
         password: &'a str,
     }
 
-    let response: AuthResponse =
-        fetch_json(AUTH_URL, None, &AuthRequest { username, password }).await?;
+    let response: AuthResponse = fetch_json(AUTH_URL, None, &AuthRequest { username, password })?;
     Ok(response.access_token)
 }
 
@@ -60,7 +58,7 @@ async fn fetch_latest_s3_zone_date(
     Ok(None)
 }
 
-fn get_file_date_from_header(response: &Resonse) -> Result<String> {
+fn get_file_date_from_header(response: &reqwest::blocking::Response) -> Result<String> {
     let headers = response.headers();
     let last_modified_orig = headers
         .get("last-modified")
@@ -74,7 +72,7 @@ fn get_file_date_from_header(response: &Resonse) -> Result<String> {
 }
 
 async fn download_zone_file(access_token: &str, latest: Option<&str>) -> Result<()> {
-    let response = send_request(ZONE_FILE_URL, Some(access_token), Method::GET, &json!({})).await?;
+    let response = send_request(ZONE_FILE_URL, Some(access_token), Method::GET, &json!({}))?;
     let last_icann_date = get_file_date_from_header(&response)?;
 
     if let Some(last_processed_date) = latest {
@@ -85,7 +83,8 @@ async fn download_zone_file(access_token: &str, latest: Option<&str>) -> Result<
 
     let path = format!("com.zone.{last_icann_date}.txt.gz");
 
-    download_stream_to_file(response, &path).await?;
+    // download_stream_to_file(response, &path).await?;
+    process_zone_file(response, &path).await?;
     Ok(())
 }
 

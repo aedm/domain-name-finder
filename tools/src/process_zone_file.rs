@@ -2,7 +2,10 @@ use anyhow::{Context, Result};
 // use flate2::read::GzDecoder;
 // use flate2::write::GzEncoder;
 // use flate2::Compression;
-use futures_util::TryStreamExt;
+use flate2::read::GzDecoder;
+use flate2::write::GzEncoder;
+use flate2::Compression;
+// use futures_util::TryStreamExt;
 use itertools::Itertools;
 use std::fs::File;
 use std::io::{BufRead, BufReader, Write};
@@ -16,7 +19,7 @@ type Message = Vec<String>;
 const CAP: usize = 10_000;
 
 // returns output file name
-async fn read_input(tx: Sender<Message>, gz_decoder: GzDecoder<File>) -> Result<()> {
+async fn read_input<T: std::io::Read>(tx: Sender<Message>, gz_decoder: GzDecoder<T>) -> Result<()> {
     let reader = BufReader::new(gz_decoder);
     println!("Reader");
     let mut v = Vec::with_capacity(CAP);
@@ -68,7 +71,7 @@ async fn filter_lines(
     Ok(())
 }
 
-async fn write_output(mut rx: Receiver<String>, output_file_name: &str) -> Result<()> {
+async fn write_output(mut rx: Receiver<String>, output_file_name: String) -> Result<()> {
     // let output_file_name = format!("{}.filtered.txt.gz", original_file_name);
     println!("Writing to '{}'...", output_file_name);
     let target_file = File::create(&output_file_name)?;
@@ -80,7 +83,10 @@ async fn write_output(mut rx: Receiver<String>, output_file_name: &str) -> Resul
     Ok(())
 }
 
-pub async fn process_zone_file(response: reqwest::Response, output_file_name: &str) -> Result<()> {
+pub async fn process_zone_file(
+    response: reqwest::blocking::Response,
+    output_file_name: &str,
+) -> Result<()> {
     println!("main");
 
     // let gz_file = File::open("com.txt.gz")?;
@@ -91,8 +97,8 @@ pub async fn process_zone_file(response: reqwest::Response, output_file_name: &s
     // let stream = response.bytes_stream().map_err(|_: reqwest::Error| {
     //     std::io::Error::new(std::io::ErrorKind::Other, "Download error")
     // });
-    let stream = response.bytes_stream().map_err(convert_error);
-    let mut stream_reader = BufReader::new(stream);
+    // let stream = response.bytes_stream().map_err(convert_error);
+    let mut stream_reader = BufReader::new(response);
 
     let gz_decoder = GzDecoder::new(stream_reader);
     // let header = gz_decoder
@@ -111,6 +117,7 @@ pub async fn process_zone_file(response: reqwest::Response, output_file_name: &s
     let reader_task = tokio::spawn(async { read_input(input_to_filter_sender, gz_decoder).await });
     let filter_task =
         tokio::spawn(async { filter_lines(input_to_filter_recv, filter_to_output_sender).await });
+    let output_file_name = output_file_name.to_string();
     let writer_task =
         tokio::spawn(async { write_output(filter_to_output_recv, output_file_name).await });
 

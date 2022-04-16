@@ -73,7 +73,14 @@ fn get_file_date_from_header(response: &reqwest::Response) -> Result<String> {
 }
 
 async fn download_zone_file(access_token: &str, latest: Option<&str>) -> Result<()> {
-    let response = send_request(ZONE_FILE_URL, Some(access_token), Method::GET, &json!({})).await?;
+    // let response = send_request(ZONE_FILE_URL, Some(access_token), Method::GET, &json!({})).await?;
+    let response = send_request(
+        "http://localhost:8000/com.txt.gz",
+        Some(access_token),
+        Method::GET,
+        &json!({}),
+    )
+    .await?;
     let last_icann_date = get_file_date_from_header(&response)?;
 
     if let Some(last_processed_date) = latest {

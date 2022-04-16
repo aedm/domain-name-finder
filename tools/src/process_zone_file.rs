@@ -76,12 +76,13 @@ async fn filter_lines(
 async fn write_output(mut rx: Receiver<String>, output_file_name: &str) -> Result<()> {
     // let output_file_name = format!("{}.filtered.txt.gz", original_file_name);
     println!("Writing to '{}'...", output_file_name);
-    let target_file = tokio::fs::File::create(output_file_name).await?;
+    let mut target_file = tokio::fs::File::create(output_file_name).await?;
     let mut writer = GzipEncoder::new(target_file);
 
     while let Some(lines) = rx.recv().await {
         writer.write(lines.as_bytes()).await?;
     }
+    writer.shutdown().await?;
     Ok(())
 }
 
@@ -91,8 +92,10 @@ pub async fn process_zone_file(response: reqwest::Response, output_file_name: &s
         .map_err(|e| futures::io::Error::new(futures::io::ErrorKind::Other, e))
         .into_async_read()
         .compat();
+    // let buf_reader_1 = tokio::io::BufReader::with_capacity(1024 * 1024, stream);
+    // let gzip_decoder = GzipDecoder::new(buf_reader_1);
     let gzip_decoder = GzipDecoder::new(stream);
-    let buf_reader = tokio::io::BufReader::new(gzip_decoder);
+    let buf_reader = tokio::io::BufReader::with_capacity(1024 * 128, gzip_decoder);
 
     let (input_to_filter_sender, mut input_to_filter_recv) = channel::<Message>(1_000);
     let (filter_to_output_sender, mut filter_to_output_recv) = channel::<String>(1_000);

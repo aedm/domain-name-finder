@@ -5,7 +5,7 @@ use tokio_util::compat::FuturesAsyncReadCompatExt;
 
 #[tokio::main]
 async fn main() -> anyhow::Result<()> {
-    let url = "https://f001.backblazeb2.com/file/korteur/hello-world.txt.gz";
+    let url = "http://localhost:8000/com.txt.gz";
     let response = reqwest::get(url).await?;
     let stream = response
         .bytes_stream()
@@ -14,12 +14,16 @@ async fn main() -> anyhow::Result<()> {
         .compat();
     let gzip_decoder = GzipDecoder::new(stream);
 
-    // Print decompressed txt content
     let buf_reader = tokio::io::BufReader::new(gzip_decoder);
     let mut lines = buf_reader.lines();
+    let mut count = 0;
     while let Some(line) = lines.next_line().await? {
-        println!("{line}");
+        count += 1;
+        if count % 10_000_000 == 0 {
+            println!("Processed: {count}");
+        }
     }
 
+    println!("Total number of lines: {count}");
     Ok(())
 }

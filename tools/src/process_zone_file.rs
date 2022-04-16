@@ -105,15 +105,22 @@ pub async fn process_zone_file(response: reqwest::Response, output_file_name: &s
     let reader_task = tokio::spawn(async { read_input(input_to_filter_sender, buf_reader).await });
     let filter_task =
         tokio::spawn(async { filter_lines(input_to_filter_recv, filter_to_output_sender).await });
-    let output_file_name = output_file_name.to_string();
+    let output_file_name_clone = output_file_name.to_string();
     let writer_task =
-        tokio::spawn(async move { write_output(filter_to_output_recv, &output_file_name).await });
+        tokio::spawn(
+            async move { write_output(filter_to_output_recv, &output_file_name_clone).await },
+        );
 
-    reader_task.await?;
-    filter_task.await?;
-    writer_task.await?;
+    let reader_result = reader_task.await?;
+    let filter_result = filter_task.await?;
+    let writer_result = writer_task.await?;
+
+    reader_result?;
+    filter_result?;
+    writer_result?;
 
     let elapsed = now.elapsed().as_micros();
     println!("Runtime: {} sec", elapsed as f64 / 1000000.0);
+    println!("Download finished: {output_file_name}");
     Ok(())
 }

@@ -89,12 +89,9 @@ async fn write_output(mut rx: Receiver<String>, output_file_name: &str) -> Resul
 pub async fn process_zone_file(response: reqwest::Response, output_file_name: &str) -> Result<()> {
     let stream = response
         .bytes_stream()
-        .map_err(|e| futures::io::Error::new(futures::io::ErrorKind::Other, e))
-        .into_async_read()
-        .compat();
-    // let buf_reader_1 = tokio::io::BufReader::with_capacity(1024 * 1024, stream);
-    // let gzip_decoder = GzipDecoder::new(buf_reader_1);
-    let gzip_decoder = GzipDecoder::new(stream);
+        .map_err(|e| futures::io::Error::new(futures::io::ErrorKind::Other, e));
+    let stream_reader = tokio_util::io::StreamReader::new(stream);
+    let gzip_decoder = GzipDecoder::new(stream_reader);
     let buf_reader = tokio::io::BufReader::with_capacity(1024 * 128, gzip_decoder);
 
     let (input_to_filter_sender, mut input_to_filter_recv) = channel::<Message>(1_000);

@@ -1,18 +1,18 @@
 extern crate dotenv;
 
 use anyhow::{anyhow, Context, Result};
-use aws_config::meta::region::RegionProviderChain;
-use aws_sdk_s3::Client;
+
+
 use chrono::DateTime;
 use dotenv::dotenv;
-use indicatif::{ProgressBar, ProgressStyle};
+
 use itertools::Itertools;
 use reqwest::Method;
 use serde::{Deserialize, Serialize};
 use serde_json::json;
-use std::cmp::min;
-use std::fs::File;
-use std::io::Write;
+
+
+
 use tools::process_zone_file::process_zone_file;
 use tools::{fetch_json, get_all_files_from_s3_bucket, get_env, make_aws_s3_client, send_request};
 

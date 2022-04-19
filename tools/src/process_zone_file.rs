@@ -1,15 +1,15 @@
-use anyhow::{Context, Result};
+use anyhow::{Result};
 use async_compression::tokio::bufread::GzipDecoder;
 use async_compression::tokio::write::GzipEncoder;
 use futures::stream::TryStreamExt;
 use itertools::Itertools;
-use std::fs::File;
+
 use std::thread;
 use std::time::Instant;
 use tokio::io::{AsyncBufReadExt, AsyncWriteExt, BufReader};
 use tokio::sync::mpsc::{channel, Receiver, Sender};
-use tokio_util::compat::FuturesAsyncReadCompatExt;
-use tokio_util::io::StreamReader;
+
+
 
 type Message = Vec<String>;
 
@@ -76,7 +76,7 @@ async fn filter_lines(
 async fn write_output(mut rx: Receiver<String>, output_file_name: &str) -> Result<()> {
     // let output_file_name = format!("{}.filtered.txt.gz", original_file_name);
     println!("Writing to '{}'...", output_file_name);
-    let mut target_file = tokio::fs::File::create(output_file_name).await?;
+    let target_file = tokio::fs::File::create(output_file_name).await?;
     let mut writer = GzipEncoder::new(target_file);
 
     while let Some(lines) = rx.recv().await {
@@ -94,8 +94,8 @@ pub async fn process_zone_file(response: reqwest::Response, output_file_name: &s
     let gzip_decoder = GzipDecoder::new(stream_reader);
     let buf_reader = tokio::io::BufReader::with_capacity(1024 * 128, gzip_decoder);
 
-    let (input_to_filter_sender, mut input_to_filter_recv) = channel::<Message>(1_000);
-    let (filter_to_output_sender, mut filter_to_output_recv) = channel::<String>(1_000);
+    let (input_to_filter_sender, input_to_filter_recv) = channel::<Message>(1_000);
+    let (filter_to_output_sender, filter_to_output_recv) = channel::<String>(1_000);
 
     let now = Instant::now();
 

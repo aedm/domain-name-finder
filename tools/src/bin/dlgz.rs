@@ -17,7 +17,7 @@ async fn main() -> anyhow::Result<()> {
     let buf_reader = tokio::io::BufReader::new(gzip_decoder);
     let mut lines = buf_reader.lines();
     let mut count = 0;
-    while let Some(line) = lines.next_line().await? {
+    while let Some(_line) = lines.next_line().await? {
         count += 1;
         if count % 10_000_000 == 0 {
             println!("Processed: {count}");

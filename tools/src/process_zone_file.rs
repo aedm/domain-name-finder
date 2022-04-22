@@ -1,27 +1,21 @@
-use anyhow::{Result};
+use anyhow::Result;
 use async_compression::tokio::bufread::GzipDecoder;
 use async_compression::tokio::write::GzipEncoder;
 use futures::stream::TryStreamExt;
 use itertools::Itertools;
-
 use std::thread;
 use std::time::Instant;
 use tokio::io::{AsyncBufReadExt, AsyncWriteExt, BufReader};
 use tokio::sync::mpsc::{channel, Receiver, Sender};
-
-
 
 type Message = Vec<String>;
 
 const CAP: usize = 10_000;
 
 // returns output file name
-async fn read_input<T: tokio::io::AsyncRead + Unpin>(
-    tx: Sender<Message>,
-    reader: BufReader<T>,
-) -> Result<()> {
-    // let reader = BufReader::new(gz_decoder);
-    println!("Reader");
+async fn read_input(tx: Sender<Message>, input: impl tokio::io::AsyncRead + Unpin) -> Result<()> {
+    println!("Reader task started.");
+    let reader = BufReader::new(input);
     let mut v = Vec::with_capacity(CAP);
     let mut lines = reader.lines();
     while let Some(line) = lines.next_line().await? {
@@ -39,7 +33,7 @@ async fn filter_lines(
     mut input_to_filter_recv: Receiver<Message>,
     filter_to_output_sender: Sender<String>,
 ) -> Result<()> {
-    println!("Filter {:?}", thread::current().id());
+    println!("Filter task started.");
     let mut last_domain = String::new();
     let mut counter = 0;
     while let Some(lines) = input_to_filter_recv.recv().await {
@@ -51,16 +45,10 @@ async fn filter_lines(
             {
                 continue;
             }
-            // let domain = line.split('.').nth(0).expect("Error in input");
-            // filter_to_output_sender.send(last_domain.clone()).await?;
             v.push(domain);
             counter += 1;
             if counter % 1_000_000 == 0 {
-                println!(
-                    "Processed {} million entries. {:?}",
-                    counter / 1_000_000,
-                    thread::current().id()
-                );
+                println!("Processed {} million entries.", counter / 1_000_000);
             }
         }
         if v.len() > 0 {
@@ -74,7 +62,6 @@ async fn filter_lines(
 }
 
 async fn write_output(mut rx: Receiver<String>, output_file_name: &str) -> Result<()> {
-    // let output_file_name = format!("{}.filtered.txt.gz", original_file_name);
     println!("Writing to '{}'...", output_file_name);
     let target_file = tokio::fs::File::create(output_file_name).await?;
     let mut writer = GzipEncoder::new(target_file);
@@ -92,21 +79,20 @@ pub async fn process_zone_file(response: reqwest::Response, output_file_name: &s
         .map_err(|e| futures::io::Error::new(futures::io::ErrorKind::Other, e));
     let stream_reader = tokio_util::io::StreamReader::new(stream);
     let gzip_decoder = GzipDecoder::new(stream_reader);
-    let buf_reader = tokio::io::BufReader::with_capacity(1024 * 128, gzip_decoder);
 
-    let (input_to_filter_sender, input_to_filter_recv) = channel::<Message>(1_000);
-    let (filter_to_output_sender, filter_to_output_recv) = channel::<String>(1_000);
+    let (input_to_filter_sender, input_to_filter_recv) = channel::<Message>(100);
+    let (filter_to_output_sender, filter_to_output_recv) = channel::<String>(100);
 
     let now = Instant::now();
 
-    let reader_task = tokio::spawn(async { read_input(input_to_filter_sender, buf_reader).await });
+    let reader_task =
+        tokio::spawn(async { read_input(input_to_filter_sender, gzip_decoder).await });
     let filter_task =
         tokio::spawn(async { filter_lines(input_to_filter_recv, filter_to_output_sender).await });
-    let output_file_name_clone = output_file_name.to_string();
-    let writer_task =
-        tokio::spawn(
-            async move { write_output(filter_to_output_recv, &output_file_name_clone).await },
-        );
+    let writer_task = {
+        let path_string = output_file_name.to_string();
+        tokio::spawn(async move { write_output(filter_to_output_recv, &path_string).await })
+    };
 
     let reader_result = reader_task.await?;
     let filter_result = filter_task.await?;

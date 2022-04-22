@@ -1,4 +1,7 @@
-FROM rust:1.58 as builder
+FROM rust:1.60 as builder
+
+RUN apt-get update \
+    && apt-get install -y cmake
 
 RUN USER=root cargo new --bin server
 WORKDIR ./server
@@ -12,7 +15,8 @@ RUN rm ./target/release/deps/server*
 RUN cargo build --release
 
 
-FROM debian:buster-slim
+#FROM debian:buster-slim
+FROM nginx:latest
 ARG APP=/usr/src/app
 
 RUN apt-get update \
@@ -37,5 +41,7 @@ WORKDIR ${APP}
 
 RUN mkdir ${APP}/db
 WORKDIR ${APP}/db
+
+COPY com.zone.20220416-060720.txt.gz ${APP}/db/
 
 CMD ["../server"]

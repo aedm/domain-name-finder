@@ -4,7 +4,7 @@ use std::collections::HashSet;
 #[macro_export]
 macro_rules! for_each_domain_length {
     ($l:tt) => {
-        seq! {N in 0..64 $l}
+        seq! {N in 0..65 $l}
     };
 }
 

@@ -1,17 +1,20 @@
 FROM rust:1.60 as builder
 
+# Update image
 RUN apt-get update \
     && apt-get install -y cmake
 
+# Install and build dependencies
 RUN USER=root cargo new --bin server
 WORKDIR ./server
-COPY ./Cargo.toml ./Cargo.toml
+COPY server/Cargo.toml ./Cargo.toml
+COPY server/Cargo.lock ./Cargo.lock
 RUN cargo build --release
-RUN rm src/*.rs
-
-ADD src ./src
-
+RUN rm -rf ./src
 RUN rm ./target/release/deps/server*
+
+# Copy and build sources
+ADD server/src ./src
 RUN cargo build --release
 
 
@@ -23,7 +26,7 @@ RUN apt-get update \
     && apt-get install -y ca-certificates tzdata \
     && rm -rf /var/lib/apt/lists/*
 
-EXPOSE 8000
+EXPOSE 9000
 
 ENV TZ=Etc/UTC \
     APP_USER=appuser
@@ -37,11 +40,9 @@ COPY --from=builder /server/target/release/server ${APP}/server
 RUN chown -R $APP_USER:$APP_USER ${APP}
 
 USER $APP_USER
-WORKDIR ${APP}
 
-RUN mkdir ${APP}/db
+# Copy database file
+COPY ./db ${APP}/db
 WORKDIR ${APP}/db
-
-COPY com.zone.20220416-060720.txt.gz ${APP}/db/
 
 CMD ["../server"]

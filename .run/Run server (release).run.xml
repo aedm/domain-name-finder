@@ -1,7 +1,7 @@
 <component name="ProjectRunConfigurationManager">
   <configuration default="false" name="Run server (release)" type="CargoCommandRunConfiguration" factoryName="Cargo Command">
-    <option name="command" value="run --package server --bin server --release --manifest-path ../server/Cargo.toml" />
-    <option name="workingDirectory" value="file://$PROJECT_DIR$/db" />
+    <option name="command" value="run --package server --bin server --release --manifest-path ./server/Cargo.toml" />
+    <option name="workingDirectory" value="file://$PROJECT_DIR$" />
     <option name="channel" value="DEFAULT" />
     <option name="requiredFeatures" value="true" />
     <option name="allFeatures" value="false" />

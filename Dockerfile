@@ -43,6 +43,6 @@ USER $APP_USER
 
 # Copy database file
 COPY ./db ${APP}/db
-WORKDIR ${APP}/db
+WORKDIR ${APP}
 
-CMD ["../server"]
+CMD ["./server"]

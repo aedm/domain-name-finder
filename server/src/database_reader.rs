@@ -15,17 +15,20 @@ async fn read_input_from_file(sender: Sender<Vec<String>>, input_file_path: Stri
     println!("Reading from {}...", input_file_path);
     let reader = BufReader::new(GzDecoder::new(File::open(input_file_path)?));
     let mut batch = Vec::with_capacity(CHANNEL_BATCH_SIZE);
-    for (counter, line) in reader.lines().enumerate() {
+    let mut counter = 0;
+    for line in reader.lines() {
         batch.push(line?);
         if batch.len() == CHANNEL_BATCH_SIZE {
             sender.send(batch).await?;
             batch = Vec::with_capacity(CHANNEL_BATCH_SIZE);
         }
+        counter += 1;
         if counter % 10_000_000 == 0 {
             println!("{} million entries loaded.", counter / 1_000_000);
         }
     }
     sender.send(batch).await?;
+    println!("Total entry count: {counter}");
     Ok(())
 }
 
@@ -63,7 +66,7 @@ async fn build_hash_set<const N: usize>(mut recv: Receiver<Vec<String>>) -> Hash
 
 fn find_database_file_path() -> Result<String> {
     let pattern: Regex = Regex::new(r"/com.zone.\d+-\d+.txt.gz$")?;
-    for entry in std::fs::read_dir(".")? {
+    for entry in std::fs::read_dir("./db")? {
         let path = entry?.path();
         println!("Entry: {path:?}");
         if let Some(path) = path.to_str() {

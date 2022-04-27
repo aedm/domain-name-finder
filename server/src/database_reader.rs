@@ -1,6 +1,7 @@
 use crate::{for_each_domain_length, Database};
-use anyhow::Result;
+use anyhow::{anyhow, Context, Result};
 use flate2::read::GzDecoder;
+use regex::Regex;
 use seq_macro::seq;
 use std::collections::HashSet;
 use std::fs::File;
@@ -8,42 +9,26 @@ use std::io::{BufRead, BufReader};
 use std::time::Instant;
 use tokio::sync::mpsc::{channel, Receiver, Sender};
 
-const INPUT_FILE_PATH: &str = "com.zone.filtered.txt.gz";
 const CHANNEL_BATCH_SIZE: usize = 50_000;
 
-async fn read_input_from_file(sender: Sender<Vec<String>>) -> Result<()> {
-    println!("Reading from {}...", INPUT_FILE_PATH);
-    let reader = BufReader::new(GzDecoder::new(File::open(INPUT_FILE_PATH)?));
+async fn read_input_from_file(sender: Sender<Vec<String>>, input_file_path: String) -> Result<()> {
+    println!("Reading from {}...", input_file_path);
+    let reader = BufReader::new(GzDecoder::new(File::open(input_file_path)?));
     let mut batch = Vec::with_capacity(CHANNEL_BATCH_SIZE);
-    for (counter, line) in reader.lines().enumerate() {
+    let mut counter = 0;
+    for line in reader.lines() {
         batch.push(line?);
         if batch.len() == CHANNEL_BATCH_SIZE {
             sender.send(batch).await?;
             batch = Vec::with_capacity(CHANNEL_BATCH_SIZE);
         }
+        counter += 1;
         if counter % 10_000_000 == 0 {
             println!("{} million entries loaded.", counter / 1_000_000);
         }
     }
     sender.send(batch).await?;
-    Ok(())
-}
-
-fn read_input_from_file_blocking(sender: Sender<Vec<String>>) -> Result<()> {
-    println!("Reading from {}...", INPUT_FILE_PATH);
-    let reader = BufReader::new(GzDecoder::new(File::open(INPUT_FILE_PATH)?));
-    let mut batch = Vec::with_capacity(CHANNEL_BATCH_SIZE);
-    for (counter, line) in reader.lines().enumerate() {
-        batch.push(line?);
-        if batch.len() == CHANNEL_BATCH_SIZE {
-            sender.blocking_send(batch)?;
-            batch = Vec::with_capacity(CHANNEL_BATCH_SIZE);
-        }
-        if counter % 10_000_000 == 0 {
-            println!("{} million entries loaded.", counter / 1_000_000);
-        }
-    }
-    sender.blocking_send(batch)?;
+    println!("Total entry count: {counter}");
     Ok(())
 }
 
@@ -52,8 +37,12 @@ async fn distribute(
     senders: Vec<Sender<Vec<String>>>,
 ) -> Result<()> {
     while let Some(lines) = recv.recv().await {
-        let mut batches = vec![Vec::with_capacity(CHANNEL_BATCH_SIZE); 64];
+        let mut batches = vec![Vec::with_capacity(CHANNEL_BATCH_SIZE); 65];
         for line in lines {
+            if line.len() > 64 {
+                println!("Line too long: {line}");
+                continue;
+            }
             batches[line.len()].push(line);
         }
         for (i, v) in batches.into_iter().enumerate() {
@@ -75,8 +64,25 @@ async fn build_hash_set<const N: usize>(mut recv: Receiver<Vec<String>>) -> Hash
     set
 }
 
+fn find_database_file_path() -> Result<String> {
+    let pattern: Regex = Regex::new(r"/com.zone.\d+-\d+.txt.gz$")?;
+    for entry in std::fs::read_dir("./db")? {
+        let path = entry?.path();
+        println!("Entry: {path:?}");
+        if let Some(path) = path.to_str() {
+            if pattern.is_match(path) {
+                return Ok(path.to_string());
+            }
+        }
+    }
+    Err(anyhow!("Database file not found."))
+}
+
 pub async fn read_database() -> Result<Database> {
     println!("Reading database...");
+
+    let db_file = find_database_file_path()?;
+    println!("Database file found: {db_file}");
 
     let now = Instant::now();
 
@@ -91,7 +97,9 @@ pub async fn read_database() -> Result<Database> {
     });
 
     let file_reader_task =
-        tokio::spawn(async move { read_input_from_file(input_to_distributor_sender).await });
+        tokio::spawn(
+            async move { read_input_from_file(input_to_distributor_sender, db_file).await },
+        );
     let distributor_task = tokio::spawn(async move {
         distribute(input_to_distributor_recv, distributor_to_builder_senders).await
     });

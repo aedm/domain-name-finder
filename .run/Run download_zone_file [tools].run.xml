@@ -1,7 +1,7 @@
 <component name="ProjectRunConfigurationManager">
   <configuration default="false" name="Run download_zone_file [tools]" type="CargoCommandRunConfiguration" factoryName="Cargo Command">
-    <option name="command" value="run --package tools --release --bin download_zone_file" />
-    <option name="workingDirectory" value="file://$PROJECT_DIR$/tools" />
+    <option name="command" value="run --package tools --release --bin download_zone_file --manifest-path ./tools/Cargo.toml" />
+    <option name="workingDirectory" value="file://$PROJECT_DIR$" />
     <option name="channel" value="DEFAULT" />
     <option name="requiredFeatures" value="true" />
     <option name="allFeatures" value="false" />

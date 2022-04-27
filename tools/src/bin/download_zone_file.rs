@@ -1,4 +1,5 @@
 extern crate dotenv;
+
 use anyhow::{anyhow, Context, Result};
 use chrono::DateTime;
 use dotenv::dotenv;
@@ -6,6 +7,7 @@ use itertools::Itertools;
 use reqwest::Method;
 use serde::{Deserialize, Serialize};
 use serde_json::json;
+use std::io::ErrorKind;
 use tools::process_zone_file::process_zone_file;
 use tools::{fetch_json, get_all_files_from_s3_bucket, get_env, make_aws_s3_client, send_request};
 
@@ -74,7 +76,13 @@ async fn download_zone_file(access_token: &str, latest: Option<&str>) -> Result<
         }
     }
 
-    let path = format!("com.zone.{last_icann_date}.txt.gz");
+    if let Err(err) = std::fs::create_dir("db") {
+        if err.kind() != ErrorKind::AlreadyExists {
+            return Err(anyhow!("Can't create db directory: {err:?}"));
+        }
+    }
+
+    let path = format!("./db/com.zone.{last_icann_date}.txt.gz");
     process_zone_file(response, &path).await?;
     Ok(())
 }

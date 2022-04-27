@@ -5,4 +5,5 @@
 target
 *.txt.gz
 /db
-/tools/.env
+/db_temp
+.env

@@ -11,10 +11,7 @@ use serde::{Deserialize, Serialize};
 use serde_json::json;
 use std::io::ErrorKind;
 use tools::process_zone_file::process_zone_file;
-use tools::{
-    fetch_json, get_all_files_from_s3_bucket, get_env, make_aws_s3_client, response_to_reader,
-    send_request, ObservedReader,
-};
+use tools::{fetch_json, get_all_files_from_s3_bucket, get_env, make_aws_s3_client, response_to_reader, send_request, ObservedReader, send_request_blocking};
 
 const AUTH_URL: &str = &"https://account-api.icann.org/api/authenticate";
 const ZONE_FILE_URL: &str = &"https://czds-api.icann.org/czds/downloads/com.zone";
@@ -119,6 +116,44 @@ async fn download_zone_file(access_token: &str) -> Result<()> {
     Ok(())
 }
 
+fn download_zone_file2(access_token: &str) -> Result<()> {
+    let mut response =
+        send_request_blocking(ZONE_FILE_URL, Some(access_token), Method::GET, &json!({}))?;
+    // let total_size = response.content_length().context(format!(
+    //     "Failed to get content length from '{}'",
+    //     ZONE_FILE_URL
+    // ))?;
+    let length = response.content_length().context("Response length error")?;
+    let last_icann_date = get_file_date_from_header(&response)?;
+
+
+    let pb = ProgressBar::new(length);
+    pb.set_style(ProgressStyle::default_bar()
+        .template("{msg}\n{spinner:.green} [{elapsed_precise}] [{wide_bar:.cyan/blue}] {bytes}/{total_bytes} ({bytes_per_sec}, {eta})")
+        .progress_chars("#>-"));
+    pb.set_message(format!("Downloading {}", path));
+
+    let path = format!("./db/com.zone.{last_icann_date}.txt.gz");
+    let mut target_file = std::fs::File::create(path)?;
+
+    // let mut target_file = tokio::fs::File::create(format!("{path}")).await?;
+    // let mut reader = response_to_reader(response);
+    // let mut buf_reader = tokio::io::BufReader::new(reader);
+    // let mut sum = 0;
+    // let mut observer = ObservedReader::new(buf_reader, |buf| {
+    //     // println!("Buf size: {}", buf.filled().len());
+    //     let last = sum / 10_000_000;
+    //     sum += buf.filled().len() as u64;
+    //     if sum / 10_000_000 != last {
+    //         pb.set_position(sum);
+    //     }
+    // });
+    std::io::copy(&mut pb.wrap_read(response), &mut target_file)?;
+    // tokio::io::copy(&mut observer, &mut target_file).await?;
+    pb.finish_with_message(format!("Downloaded {}", path));
+    Ok(())
+}
+
 #[tokio::main]
 async fn main() -> Result<()> {
     println!("Starting zone file downloader.");
@@ -128,7 +163,7 @@ async fn main() -> Result<()> {
     let icann_password = get_env("ICANN_PASSWORD")?;
     let token = fetch_access_token(&icann_username, &icann_password).await?;
     println!("TOKEN: {token}");
-    download_zone_file(&token).await?;
+    download_zone_file2(&token)?;
     println!("DOne.");
     Ok(())
 }

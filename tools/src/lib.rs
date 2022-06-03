@@ -34,6 +34,22 @@ pub async fn send_request<Req: serde::ser::Serialize>(
     request.json(payload).send().await
 }
 
+pub async fn send_request_blocking<Req: serde::ser::Serialize>(
+    url: &str,
+    access_token: Option<&str>,
+    method: reqwest::Method,
+    payload: &Req,
+) -> Result<reqwest::blocking::Response, reqwest::Error> {
+    let mut request = reqwest::blocking::Client::new()
+        .request(method, url)
+        .header("User-Agent", "utils/0.1.0");
+    if let Some(token) = access_token {
+        request = request.header("Authorization", format!("bearer {token}"));
+    }
+    request.json(payload).send()
+}
+
+
 pub async fn fetch_json<Req: serde::ser::Serialize, Resp: serde::de::DeserializeOwned>(
     url: &str,
     access_token: Option<&str>,

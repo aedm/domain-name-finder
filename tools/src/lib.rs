@@ -14,7 +14,7 @@ pub fn get_env(name: &str) -> Result<String> {
     Err(anyhow!("Missing environment variable '{name}'."))
 }
 
-pub fn send_request_blocking<Req: serde::ser::Serialize>(
+pub fn send_request<Req: serde::ser::Serialize>(
     url: &str,
     access_token: Option<&str>,
     method: reqwest::Method,
@@ -34,7 +34,7 @@ pub fn fetch_json<Req: serde::ser::Serialize, Resp: serde::de::DeserializeOwned>
     access_token: Option<&str>,
     request_payload: &Req,
 ) -> Result<Resp> {
-    let response = send_request_blocking(url, access_token, Method::POST, request_payload)?;
+    let response = send_request(url, access_token, Method::POST, request_payload)?;
     Ok(response.json::<Resp>()?)
 }
 

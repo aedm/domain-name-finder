@@ -8,7 +8,7 @@ use itertools::Itertools;
 use reqwest::Method;
 use serde::{Deserialize, Serialize};
 use serde_json::json;
-use tools::{fetch_json, get_all_files_from_s3_bucket, get_env, send_request_blocking};
+use tools::{fetch_json, get_all_files_from_s3_bucket, get_env, send_request};
 
 const AUTH_URL: &str = &"https://account-api.icann.org/api/authenticate";
 const ZONE_FILE_URL: &str = &"https://czds-api.icann.org/czds/downloads/com.zone";
@@ -52,7 +52,7 @@ async fn _fetch_latest_s3_zone_date(
     Ok(None)
 }
 
-fn get_file_date_from_header_blocking(response: &reqwest::blocking::Response) -> Result<String> {
+fn get_file_date_from_header(response: &reqwest::blocking::Response) -> Result<String> {
     let headers = response.headers();
     let last_modified_orig = headers
         .get("last-modified")
@@ -65,11 +65,11 @@ fn get_file_date_from_header_blocking(response: &reqwest::blocking::Response) ->
     Ok(last_icann_date)
 }
 
-fn download_zone_file2(access_token: &str) -> Result<()> {
+fn download_zone_file(access_token: &str) -> Result<()> {
     let response =
-        send_request_blocking(ZONE_FILE_URL, Some(access_token), Method::GET, &json!({}))?;
+        send_request(ZONE_FILE_URL, Some(access_token), Method::GET, &json!({}))?;
     let length = response.content_length().context("Response length error")?;
-    let last_icann_date = get_file_date_from_header_blocking(&response)?;
+    let last_icann_date = get_file_date_from_header(&response)?;
 
     let pb = ProgressBar::new(length);
     pb.set_style(ProgressStyle::default_bar()
@@ -93,7 +93,7 @@ async fn main() -> Result<()> {
     let icann_password = get_env("ICANN_PASSWORD")?;
     let token = fetch_access_token(&icann_username, &icann_password)?;
     println!("TOKEN: {token}");
-    download_zone_file2(&token)?;
+    download_zone_file(&token)?;
     println!("DOne.");
     Ok(())
 }

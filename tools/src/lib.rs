@@ -2,13 +2,8 @@ pub mod process_zone_file;
 
 use anyhow::{anyhow, Result};
 use aws_config::meta::region::RegionProviderChain;
-use futures::stream::TryStreamExt;
 use itertools::Itertools;
-use pin_project::pin_project;
 use reqwest::Method;
-use std::pin::Pin;
-use std::task::Poll;
-use tokio::io::{AsyncRead, ReadBuf};
 
 pub fn get_env(name: &str) -> Result<String> {
     if let Ok(var) = std::env::var(name) {
@@ -33,7 +28,6 @@ pub fn send_request_blocking<Req: serde::ser::Serialize>(
     }
     request.json(payload).send()
 }
-
 
 pub fn fetch_json<Req: serde::ser::Serialize, Resp: serde::de::DeserializeOwned>(
     url: &str,

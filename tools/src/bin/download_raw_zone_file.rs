@@ -1,22 +1,19 @@
 extern crate dotenv;
 
-use anyhow::{anyhow, Context, Result};
+use anyhow::{Context, Result};
 use chrono::DateTime;
 use dotenv::dotenv;
-use futures::stream::TryStreamExt;
 use indicatif::{ProgressBar, ProgressStyle};
 use itertools::Itertools;
 use reqwest::Method;
 use serde::{Deserialize, Serialize};
 use serde_json::json;
-use std::io::ErrorKind;
-use tools::process_zone_file::process_zone_file;
-use tools::{fetch_json, get_all_files_from_s3_bucket, get_env, make_aws_s3_client, send_request_blocking};
+use tools::{fetch_json, get_all_files_from_s3_bucket, get_env, send_request_blocking};
 
 const AUTH_URL: &str = &"https://account-api.icann.org/api/authenticate";
 const ZONE_FILE_URL: &str = &"https://czds-api.icann.org/czds/downloads/com.zone";
 const DATE_FORMAT: &str = "%Y%m%d-%H%M%S";
-const S3_FILE_EX: &str = ".txt.gz";
+const _S3_FILE_EX: &str = ".txt.gz";
 
 fn fetch_access_token(username: &str, password: &str) -> Result<String> {
     #[derive(Deserialize, Debug)]
@@ -45,11 +42,11 @@ async fn _fetch_latest_s3_zone_date(
     // TODO: use a regex match instead of ends_with
     let last_file = files
         .into_iter()
-        .filter(|s| s.ends_with(S3_FILE_EX))
+        .filter(|s| s.ends_with(_S3_FILE_EX))
         .sorted()
         .last();
     if let Some(s) = last_file {
-        let date_str = &s[0..(s.len() - S3_FILE_EX.len())];
+        let date_str = &s[0..(s.len() - _S3_FILE_EX.len())];
         return Ok(Some(date_str.into()));
     }
     Ok(None)
@@ -69,7 +66,7 @@ fn get_file_date_from_header_blocking(response: &reqwest::blocking::Response) ->
 }
 
 fn download_zone_file2(access_token: &str) -> Result<()> {
-    let mut response =
+    let response =
         send_request_blocking(ZONE_FILE_URL, Some(access_token), Method::GET, &json!({}))?;
     let length = response.content_length().context("Response length error")?;
     let last_icann_date = get_file_date_from_header_blocking(&response)?;

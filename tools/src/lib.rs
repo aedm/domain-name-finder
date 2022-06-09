@@ -14,28 +14,28 @@ pub fn get_env(name: &str) -> Result<String> {
     Err(anyhow!("Missing environment variable '{name}'."))
 }
 
-pub async fn send_request<Req: serde::ser::Serialize>(
+pub fn send_request<Req: serde::ser::Serialize>(
     url: &str,
     access_token: Option<&str>,
     method: reqwest::Method,
     payload: &Req,
-) -> Result<reqwest::Response, reqwest::Error> {
-    let mut request = reqwest::Client::new()
+) -> Result<reqwest::blocking::Response, reqwest::Error> {
+    let mut request = reqwest::blocking::Client::new()
         .request(method, url)
         .header("User-Agent", "utils/0.1.0");
     if let Some(token) = access_token {
         request = request.header("Authorization", format!("bearer {token}"));
     }
-    request.json(payload).send().await
+    request.json(payload).send()
 }
 
-pub async fn fetch_json<Req: serde::ser::Serialize, Resp: serde::de::DeserializeOwned>(
+pub fn fetch_json<Req: serde::ser::Serialize, Resp: serde::de::DeserializeOwned>(
     url: &str,
     access_token: Option<&str>,
     request_payload: &Req,
 ) -> Result<Resp> {
-    let response = send_request(url, access_token, Method::POST, request_payload).await?;
-    Ok(response.json::<Resp>().await?)
+    let response = send_request(url, access_token, Method::POST, request_payload)?;
+    Ok(response.json::<Resp>()?)
 }
 
 pub async fn make_aws_s3_client() -> aws_sdk_s3::Client {

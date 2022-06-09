@@ -54,7 +54,7 @@ static PEAK_ALLOC: PeakAlloc = PeakAlloc;
 // #[actix_web::main]
 #[tokio::main]
 async fn main() -> anyhow::Result<()> {
-    println!("Start");
+    println!("Start4");
 
     let is_dev_server = std::env::var("DEV_SERVER").is_ok();
 

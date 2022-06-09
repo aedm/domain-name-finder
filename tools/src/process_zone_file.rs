@@ -62,7 +62,7 @@ async fn filter_lines(
 
 async fn write_output(mut rx: Receiver<String>, output_file_name: &str) -> Result<()> {
     println!("Writing to '{}'...", output_file_name);
-    let mut target_file = tokio::fs::File::create(format!("{output_file_name}")).await?;
+    let target_file = tokio::fs::File::create(format!("{output_file_name}")).await?;
     let mut writer = GzipEncoder::new(target_file);
 
     while let Some(lines) = rx.recv().await {

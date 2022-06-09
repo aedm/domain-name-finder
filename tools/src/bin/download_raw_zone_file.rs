@@ -1,22 +1,21 @@
 extern crate dotenv;
 
-use anyhow::{anyhow, Context, Result};
+use anyhow::{Context, Result};
 use chrono::DateTime;
 use dotenv::dotenv;
+use indicatif::{ProgressBar, ProgressStyle};
 use itertools::Itertools;
 use reqwest::Method;
 use serde::{Deserialize, Serialize};
 use serde_json::json;
-use std::io::ErrorKind;
-use tools::process_zone_file::process_zone_file;
-use tools::{fetch_json, get_all_files_from_s3_bucket, get_env, make_aws_s3_client, send_request};
+use tools::{fetch_json, get_all_files_from_s3_bucket, get_env, send_request};
 
 const AUTH_URL: &str = &"https://account-api.icann.org/api/authenticate";
 const ZONE_FILE_URL: &str = &"https://czds-api.icann.org/czds/downloads/com.zone";
 const DATE_FORMAT: &str = "%Y%m%d-%H%M%S";
-const S3_FILE_EX: &str = ".txt.gz";
+const _S3_FILE_EX: &str = ".txt.gz";
 
-async fn fetch_access_token(username: &str, password: &str) -> Result<String> {
+fn fetch_access_token(username: &str, password: &str) -> Result<String> {
     #[derive(Deserialize, Debug)]
     struct AuthResponse {
         #[serde(rename = "accessToken")]
@@ -30,11 +29,11 @@ async fn fetch_access_token(username: &str, password: &str) -> Result<String> {
     }
 
     let response: AuthResponse =
-        fetch_json(AUTH_URL, None, &AuthRequest { username, password }).await?;
+        fetch_json(AUTH_URL, None, &AuthRequest { username, password })?;
     Ok(response.access_token)
 }
 
-async fn fetch_latest_s3_zone_date(
+async fn _fetch_latest_s3_zone_date(
     client: &aws_sdk_s3::Client,
     bucket_name: &str,
 ) -> Result<Option<String>> {
@@ -43,17 +42,17 @@ async fn fetch_latest_s3_zone_date(
     // TODO: use a regex match instead of ends_with
     let last_file = files
         .into_iter()
-        .filter(|s| s.ends_with(S3_FILE_EX))
+        .filter(|s| s.ends_with(_S3_FILE_EX))
         .sorted()
         .last();
     if let Some(s) = last_file {
-        let date_str = &s[0..(s.len() - S3_FILE_EX.len())];
+        let date_str = &s[0..(s.len() - _S3_FILE_EX.len())];
         return Ok(Some(date_str.into()));
     }
     Ok(None)
 }
 
-fn get_file_date_from_header(response: &reqwest::Response) -> Result<String> {
+fn get_file_date_from_header(response: &reqwest::blocking::Response) -> Result<String> {
     let headers = response.headers();
     let last_modified_orig = headers
         .get("last-modified")
@@ -66,24 +65,22 @@ fn get_file_date_from_header(response: &reqwest::Response) -> Result<String> {
     Ok(last_icann_date)
 }
 
-async fn download_zone_file(access_token: &str, latest: Option<&str>) -> Result<()> {
-    let response = send_request(ZONE_FILE_URL, Some(access_token), Method::GET, &json!({})).await?;
+fn download_zone_file(access_token: &str) -> Result<()> {
+    let response =
+        send_request(ZONE_FILE_URL, Some(access_token), Method::GET, &json!({}))?;
+    let length = response.content_length().context("Response length error")?;
     let last_icann_date = get_file_date_from_header(&response)?;
 
-    if let Some(last_processed_date) = latest {
-        if last_processed_date >= last_icann_date.as_str() {
-            return Err(anyhow!("ICANN zone file ({last_icann_date}) older than last processed ({last_processed_date})."));
-        }
-    }
+    let pb = ProgressBar::new(length);
+    pb.set_style(ProgressStyle::default_bar()
+        .template("{msg}\n{spinner:.green} [{elapsed_precise}] [{wide_bar:.cyan/blue}] {bytes}/{total_bytes} ({bytes_per_sec}, {eta})")
+        .progress_chars("#>-"));
+    pb.set_message(format!("Downloading {}", ZONE_FILE_URL));
 
-    if let Err(err) = std::fs::create_dir("db") {
-        if err.kind() != ErrorKind::AlreadyExists {
-            return Err(anyhow!("Can't create db directory: {err:?}"));
-        }
-    }
-
-    let path = format!("./db/com.zone.{last_icann_date}.txt.gz");
-    process_zone_file(response, &path).await?;
+    let path = format!("./db/com-zone-raw.{last_icann_date}.txt.gz");
+    let mut target_file = std::fs::File::create(&path)?;
+    std::io::copy(&mut pb.wrap_read(response), &mut target_file)?;
+    pb.finish_with_message(format!("Downloaded to {}", path));
     Ok(())
 }
 
@@ -94,14 +91,8 @@ async fn main() -> Result<()> {
 
     let icann_username = get_env("ICANN_USERNAME")?;
     let icann_password = get_env("ICANN_PASSWORD")?;
-    let token = fetch_access_token(&icann_username, &icann_password).await?;
-
-    let client = make_aws_s3_client().await;
-    let s3_bucket = get_env("S3_BUCKET_NAME")?;
-
-    let latest = fetch_latest_s3_zone_date(&client, &s3_bucket).await?;
-
-    download_zone_file(&token, latest.as_deref()).await?;
-    println!("{latest:?}");
+    let token = fetch_access_token(&icann_username, &icann_password)?;
+    download_zone_file(&token)?;
+    println!("DOne.");
     Ok(())
 }

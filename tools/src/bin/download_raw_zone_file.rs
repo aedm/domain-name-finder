@@ -92,7 +92,6 @@ async fn main() -> Result<()> {
     let icann_username = get_env("ICANN_USERNAME")?;
     let icann_password = get_env("ICANN_PASSWORD")?;
     let token = fetch_access_token(&icann_username, &icann_password)?;
-    println!("TOKEN: {token}");
     download_zone_file(&token)?;
     println!("DOne.");
     Ok(())

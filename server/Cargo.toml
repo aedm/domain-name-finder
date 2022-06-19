@@ -12,6 +12,7 @@ itertools = "0.10.1"
 seq-macro = "0.3"
 peak_alloc = "0.1.0"
 regex = "1.5.5"
+zstd = "*"
 
 flate2 = { version = "*", features = ["zlib-ng-compat"], default-features = false }
 serde = { version = "*", features = ["derive"] }
@@ -20,11 +21,11 @@ tokio = { version = "*", features = ["macros", "rt-multi-thread"] }
 awc = "*"
 
 [profile.release]
-lto = true
+#lto = true
 #strip = true
 #panic = "abort"
 #codegen-units = 1
-opt-level = 'z'
+#opt-level = 'z'
 
 [profile.dev.package."*"]
 opt-level = 'z'

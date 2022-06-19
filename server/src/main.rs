@@ -61,7 +61,7 @@ async fn main() -> anyhow::Result<()> {
     let database = if is_dev_server {
         None
     } else {
-        Some(read_database().await?)
+        Some(read_database())
     };
     println!("Memory usage: {:.1} MB", PEAK_ALLOC.current_usage_as_mb());
 

@@ -28,8 +28,7 @@ fn fetch_access_token(username: &str, password: &str) -> Result<String> {
         password: &'a str,
     }
 
-    let response: AuthResponse =
-        fetch_json(AUTH_URL, None, &AuthRequest { username, password })?;
+    let response: AuthResponse = fetch_json(AUTH_URL, None, &AuthRequest { username, password })?;
     Ok(response.access_token)
 }
 
@@ -66,8 +65,7 @@ fn get_file_date_from_header(response: &reqwest::blocking::Response) -> Result<S
 }
 
 fn download_zone_file(access_token: &str) -> Result<()> {
-    let response =
-        send_request(ZONE_FILE_URL, Some(access_token), Method::GET, &json!({}))?;
+    let response = send_request(ZONE_FILE_URL, Some(access_token), Method::GET, &json!({}))?;
     let length = response.content_length().context("Response length error")?;
     let last_icann_date = get_file_date_from_header(&response)?;
 
@@ -93,6 +91,6 @@ async fn main() -> Result<()> {
     let icann_password = get_env("ICANN_PASSWORD")?;
     let token = fetch_access_token(&icann_username, &icann_password)?;
     download_zone_file(&token)?;
-    println!("DOne.");
+    println!("Done.");
     Ok(())
 }

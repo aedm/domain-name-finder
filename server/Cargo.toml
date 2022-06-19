@@ -21,11 +21,11 @@ tokio = { version = "*", features = ["macros", "rt-multi-thread"] }
 awc = "*"
 
 [profile.release]
-lto = true
+#lto = true
 #strip = true
 #panic = "abort"
 #codegen-units = 1
-opt-level = 'z'
+#opt-level = 'z'
 
 [profile.dev.package."*"]
 opt-level = 'z'

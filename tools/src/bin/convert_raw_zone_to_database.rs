@@ -82,7 +82,7 @@ fn write_result_files(db: Vec<Vec<u8>>, date: &str) {
 
 fn make_result_stream(length: usize, recv: Receiver<String>) -> Result<Vec<u8>> {
     let mut target = Vec::new();
-    let mut encoder = zstd::stream::Encoder::new(&mut target, 20).unwrap();
+    let mut encoder = zstd::stream::Encoder::new(&mut target, 18).unwrap();
     while let Ok(line) = recv.recv() {
         encoder.write_all(line.as_bytes())?;
     }

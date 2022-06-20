@@ -1,0 +1,3 @@
+Starting zone file downloader.
+Zone file date "20220620-060813"
+Done.

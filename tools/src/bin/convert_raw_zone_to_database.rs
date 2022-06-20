@@ -1,4 +1,4 @@
-use anyhow::{anyhow, Context, Result};
+use anyhow::Result;
 use crossbeam_channel::{unbounded, Receiver, Sender};
 use flate2::read::GzDecoder;
 use itertools::Itertools;
@@ -12,7 +12,7 @@ const MAX_LENGTH: usize = 64;
 
 fn find_raw_zone_file_path() -> (String, String) {
     let pattern: Regex = Regex::new(r"/com-zone-raw.(\d+-\d+).txt.gz$").unwrap();
-    let mut entries = std::fs::read_dir("./db/zone-file")
+    let entries = std::fs::read_dir("./db/zone-file")
         .unwrap()
         .flatten()
         .map(|entry| entry.path().to_str().map(str::to_string))
@@ -80,7 +80,7 @@ fn write_result_files(db: Vec<Vec<u8>>, date: &str) {
     }
 }
 
-fn make_result_stream(length: usize, recv: Receiver<String>) -> Result<Vec<u8>> {
+fn make_result_stream(recv: Receiver<String>) -> Result<Vec<u8>> {
     let mut target = Vec::new();
     let mut encoder = zstd::stream::Encoder::new(&mut target, 18).unwrap();
     while let Ok(line) = recv.recv() {
@@ -97,10 +97,10 @@ fn main() {
 
     let mut senders = vec![];
     let mut threads = vec![];
-    for length in 0..=MAX_LENGTH {
+    for _length in 0..=MAX_LENGTH {
         let (sender, recv) = unbounded();
         senders.push(sender);
-        threads.push(thread::spawn(move || make_result_stream(length, recv)));
+        threads.push(thread::spawn(move || make_result_stream(recv)));
     }
     read_zone_file(&raw_zone_file_path, senders);
     println!(

@@ -3,6 +3,7 @@
 # Runs an entire update cycle
 
 set -e
+set -x
 
 function check_docker_image() {
   local image=$1
@@ -22,7 +23,7 @@ function check_docker_image() {
 }
 
 function main() {
-  echo "${DOCKER_HUB_API_KEY}" | docker login --username aedm --password-stdin
+  docker login --username aedm --password "${DOCKER_HUB_API_KEY}"
 
   cargo build --package tools --release --bin download_raw_zone_file --manifest-path ./tools/Cargo.toml
 

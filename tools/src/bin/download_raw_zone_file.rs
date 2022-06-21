@@ -7,7 +7,7 @@ use indicatif::{ProgressBar, ProgressStyle};
 use reqwest::Method;
 use serde::{Deserialize, Serialize};
 use serde_json::json;
-use std::env;
+use std::{env, fs};
 use tools::{fetch_json, get_env, send_request};
 
 const AUTH_URL: &str = &"https://account-api.icann.org/api/authenticate";
@@ -60,7 +60,9 @@ fn download_zone_file(access_token: &str, date_only: bool) -> Result<()> {
         .progress_chars("#>-"));
     pb.set_message(format!("Downloading {}", ZONE_FILE_URL));
 
-    let path = format!("./db/com-zone-raw.{last_icann_date}.txt.gz");
+    let dir = "./db/zone-file";
+    fs::create_dir_all(&dir).unwrap();
+    let path = format!("{dir}/com-zone-raw.{last_icann_date}.txt.gz");
     let mut target_file = std::fs::File::create(&path)?;
     std::io::copy(&mut pb.wrap_read(response), &mut target_file)?;
     pb.finish_with_message(format!("Downloaded to {}", path));

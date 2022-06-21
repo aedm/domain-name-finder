@@ -22,6 +22,8 @@ function check_docker_image() {
 }
 
 function main() {
+  echo "${DOCKER_HUB_API_KEY}" | docker login --username aedm --password-stdin
+
   cargo build --package tools --release --bin download_raw_zone_file --manifest-path ./tools/Cargo.toml
 
   local zone_date=$(cargo run --package tools --release --bin download_raw_zone_file --manifest-path ./tools/Cargo.toml --quiet -- --only-date)

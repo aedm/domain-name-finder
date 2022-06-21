@@ -23,7 +23,7 @@ function check_docker_image() {
 }
 
 function main() {
-  docker login --username aedm --password "${DOCKER_HUB_API_KEY}"
+  echo "${DOCKER_HUB_API_KEY}" | docker login --username aedm --password-stdin
 
   cargo build --package tools --release --bin download_raw_zone_file --manifest-path ./tools/Cargo.toml
 

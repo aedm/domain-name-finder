@@ -7,13 +7,18 @@ on:
   schedule:
     # runs daily at 00:00 CDT
     - cron:  '0 * * * *'
+  pull_request:
 
 env:
   ICANN_USERNAME: ${{ secrets.ICANN_USERNAME }}
   ICANN_PASSWORD: ${{ secrets.ICANN_PASSWORD }}
+  DOCKER_HUB_API_KEY: ${{ secrets.DOCKER_HUB_API_KEY }}
 
 jobs:
   update_cycle:
     name: Update Cycle
     runs-on: ubuntu-20.04
-
+    steps:
+      - uses: actions/checkout@v2.3.4
+      - name: Run update cycle
+        run: ./update_cycle.sh

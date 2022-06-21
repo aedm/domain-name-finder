@@ -1,0 +1,19 @@
+name: CD
+
+on:
+  push:
+    branches:
+      - 'main'
+  schedule:
+    # runs daily at 00:00 CDT
+    - cron:  '0 * * * *'
+
+env:
+  ICANN_USERNAME: ${{ secrets.ICANN_USERNAME }}
+  ICANN_PASSWORD: ${{ secrets.ICANN_PASSWORD }}
+
+jobs:
+  update_cycle:
+    name: Update Cycle
+    runs-on: ubuntu-20.04
+

@@ -62,7 +62,7 @@ RUN chown -R $APP_USER:$APP_USER /var/cache/nginx
 
 # Copy database file
 WORKDIR ${APP}
-COPY ./db ./db
+COPY ./db/processed ./db/processed
 
 ADD ./proxy/start.sh ./
 CMD ["./start.sh"]

@@ -22,6 +22,12 @@ function check_docker_image() {
   echo "Image '${image}' doesnt exist yet, continuing..."
 }
 
+function upload_zone_file_to_s3() {
+  local timestamp=$1
+  local filename="./db/zone-file/com-zone-raw.${timestamp}.txt.gz"
+  aws s3 cp ${filename} s3://domain-com-zone-files --endpoint-url=https://s3.us-west-001.backblazeb2.com
+}
+
 function main() {
   echo "${DOCKER_HUB_API_KEY}" | docker login --username aedm --password-stdin
 
@@ -43,6 +49,9 @@ function main() {
 
   echo "Building ${image}"
   docker build -t ${image} .
+
+  upload_zone_file_to_s3 $zone_date
+
   docker push ${image}
 }
 

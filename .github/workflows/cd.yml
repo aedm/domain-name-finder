@@ -13,6 +13,8 @@ env:
   ICANN_USERNAME: ${{ secrets.ICANN_USERNAME }}
   ICANN_PASSWORD: ${{ secrets.ICANN_PASSWORD }}
   DOCKER_HUB_API_KEY: ${{ secrets.DOCKER_HUB_API_KEY }}
+  AWS_ACCESS_KEY_ID: ${{ secrets.BACKBLAZE_AWS_ACCESS_KEY_ID }}
+  AWS_SECRET_ACCESS_KEY: ${{ secrets.BACKBLAZE_AWS_SECRET_ACCESS_KEY }}
 
 jobs:
   update_cycle:

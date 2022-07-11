@@ -25,7 +25,9 @@ function check_docker_image() {
 function upload_zone_file_to_s3() {
   local timestamp=$1
   local filename="./db/zone-file/com-zone-raw.${timestamp}.txt.gz"
+  set +e
   aws s3 cp ${filename} s3://domain-com-zone-files --endpoint-url=https://s3.us-west-001.backblazeb2.com
+  set -e
 }
 
 function main() {
@@ -49,10 +51,9 @@ function main() {
 
   echo "Building ${image}"
   docker build -t ${image} .
+  docker push ${image}
 
   upload_zone_file_to_s3 $zone_date
-
-  docker push ${image}
 }
 
 main
